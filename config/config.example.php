@@ -13,7 +13,14 @@ if (session_status() === PHP_SESSION_NONE) {
 
 define('SITE_NAME', 'Full Circle Events Asia');
 define('SITE_SHORT', 'Full Circle');
-define('BASE_URL', 'http://localhost/Full_Event');
+// Address of the app, taken from how it was opened: localhost, this PC's Wi-Fi IP, or a
+// Cloudflare tunnel link (*.trycloudflare.com). Any other host falls back to localhost so a forged
+// Host header cannot put someone else's domain into links. Cron (no web request) uses localhost.
+$host = $_SERVER['HTTP_HOST'] ?? '';
+if (!preg_match('/^(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|[a-z0-9-]+\.trycloudflare\.com)(:\d+)?$/i', $host)) $host = 'localhost';
+$https = ($_SERVER['HTTPS'] ?? '') === 'on' || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+define('BASE_URL', ($https ? 'https' : 'http') . '://' . $host . '/Full_Event');
+unset($host, $https);
 define('BASE_PATH', dirname(__DIR__));
 
 define('DB_HOST', 'localhost');

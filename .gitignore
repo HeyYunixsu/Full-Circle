@@ -6,6 +6,7 @@ assets/qrcodes/*
 !assets/qrcodes/.gitkeep
 assets/uploads/*
 !assets/uploads/.gitkeep
+!assets/uploads/.htaccess
 
 *.log
 .DS_Store
