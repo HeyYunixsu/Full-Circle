@@ -1,0 +1,29 @@
+# Real settings: Gmail app password, Semaphore API key. Copy config/config.example.php instead.
+config/config.php
+
+# Generated per install: attendee QR images and uploaded attendee lists (personal data)
+assets/qrcodes/*
+!assets/qrcodes/.gitkeep
+assets/uploads/*
+!assets/uploads/.gitkeep
+
+*.log
+.DS_Store
+Thumbs.db
+Screenshot*.png
+
+# Unused files waiting to be deleted (see HANDOFF open item 2); not part of the app
+test.php
+assets/js/buttons.js
+api/archive_event.php
+api/checkin.php
+api/end_event.php
+api/export_attendees.php
+api/poll_checkins.php
+api/process_email_queue.php
+api/sample_csv.php
+api/scan_checkin.php
+api/send_emails.php
+api/send_sms.php
+api/update_attendee.php
+api/update_event_status.php
