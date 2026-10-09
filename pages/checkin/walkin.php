@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../../core/bootstrap.php';
 require_once __DIR__ . '/../../includes/qrcode.php';
 require_once __DIR__ . '/../../includes/sms.php';
+require_once __DIR__ . '/../../includes/mailer.php';
 requireLogin();
 
 $event_id = (int)($_GET['event_id'] ?? 0);
@@ -62,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$closed && ($use_id = (int)($_POST
             markOngoingIfEventDay($event);
             $msg = 'Checked in ' . $row['full_name'] . '. They were already on the list, so no new registration was made.';
         }
-        redirect(BASE_URL . '/pages/checkin/badge.php?attendee_id=' . $use_id, $msg);
+        redirect(BASE_URL . '/pages/checkin/badge.php?attendee_id=' . $use_id . '&from=walkin', $msg);
     }
 }
 
@@ -72,7 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$closed) {
     $company       = capitalizeWords($_POST['company'] ?? '');       // pick from the list or type a new one
     $designation   = capitalizeWords($_POST['designation'] ?? '') ?: null;   // optional
     $mobile_raw    = sanitize($_POST['mobile_number'] ?? '');
-    $send_sms      = isset($_POST['send_sms']);
+    $send_sms      = isset($_POST['send_sms']);      // "Send them a copy of their QR code": both unticked by default
+    $send_email    = isset($_POST['send_email']);
 
     $mobile = '';
     if ($mobile_raw !== '') {
@@ -151,9 +153,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$closed) {
                     }
                 }
 
+                // Copy of the QR by email: the same QR email pre-registered guests get (logged like every email)
+                $mail_note = '';
+                if ($send_email) {
+                    $new_row = $conn->query("SELECT * FROM attendees WHERE id = " . (int)$new_id)->fetch_assoc();
+                    $subject = 'Your QR Code for ' . $event['event_name'];
+                    $body    = getQREmailTemplate($new_row, $event);
+                    $res     = sendEmail($email, $full_name, $subject, $body, $qr_path);
+                    $st      = $res['success'] ? 'sent' : 'failed';
+                    $err     = $res['success'] ? null : $res['message'];
+                    $q = $conn->prepare("INSERT INTO email_queue (attendee_id, email_type, recipient_email, subject, body, status, sent_at, error_message)
+                                         VALUES (?, 'qr_code', ?, ?, ?, ?, " . ($res['success'] ? 'NOW()' : 'NULL') . ", ?)");
+                    $q->bind_param("isssss", $new_id, $email, $subject, $body, $st, $err);
+                    $q->execute();
+                    if ($res['success']) {
+                        $conn->query("UPDATE attendees SET email_sent = 1 WHERE id = " . (int)$new_id);
+                        $mail_note = ' QR code emailed.';
+                    } else {
+                        $mail_note = ' Email failed: ' . $res['message'];
+                    }
+                }
+
                 logActivity('Walk-in Registered', "{$full_name} (" . implode(' — ', array_filter([$company, $designation])) . ")");
-                redirect(BASE_URL . '/pages/checkin/badge.php?attendee_id=' . $new_id,
-                         'Walk-in registered!' . $sms_note);
+                redirect(BASE_URL . '/pages/checkin/badge.php?attendee_id=' . $new_id . '&from=walkin',   // walk-in desk: printing comes back here
+                         'Walk-in registered!' . $sms_note . $mail_note,
+                         str_contains($sms_note . $mail_note, 'failed') ? 'warning' : 'success');
             } else {
                 $error = 'Registration failed: ' . $conn->error;
             }
@@ -172,6 +196,9 @@ $page_title = 'Walk-in Registration';
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=<?= ASSET_VER ?>">
 <style>
     .alert a { font-weight: 600; text-decoration: underline; }
+    .send-copy { border: 0; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
+    .send-copy legend { padding: 0; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--color-text-strong); }
+    .send-copy .form-help { flex-basis: 100%; margin: 0; }
     .dupe-box { border: 1px solid rgba(245, 165, 36, .45); background: rgba(245, 165, 36, .08); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
     .dupe-box strong { color: var(--color-text-strong); }
     .dupe-box > p { font-size: 14px; margin: 4px 0 12px; }
@@ -264,12 +291,14 @@ $page_title = 'Walk-in Registration';
                         </div>
                     </div>
 
-                    <?php if (smsIsConfigured()): ?>
-                    <label class="check">
-                        <input type="checkbox" name="send_sms" value="1" <?= isset($_POST['send_sms']) || $_SERVER['REQUEST_METHOD'] !== 'POST' ? 'checked' : '' ?>>
-                        Text their QR code link to this number
-                    </label>
-                    <?php endif; ?>
+                    <fieldset class="send-copy">
+                        <legend>Send them a copy of their QR code <span class="optional">(optional)</span></legend>
+                        <label class="check"><input type="checkbox" name="send_email" value="1" <?= isset($_POST['send_email']) ? 'checked' : '' ?>> Email</label>
+                        <?php if (smsIsConfigured()): ?>
+                        <label class="check"><input type="checkbox" name="send_sms" value="1" <?= isset($_POST['send_sms']) ? 'checked' : '' ?>> Text message</label>
+                        <?php endif; ?>
+                        <p class="form-help">For guests who want it on their phone, e.g. to get into sessions if they lose their badge.</p>
+                    </fieldset>
 
                     <div class="form-actions">
                         <a href="<?= BASE_URL ?>/pages/checkin/index.php?event_id=<?= $event_id ?>" class="btn btn-secondary">Cancel</a>

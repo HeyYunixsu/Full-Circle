@@ -15,21 +15,25 @@ if (!$attendee) {
     redirect(BASE_URL . '/pages/attendees/index.php', 'Attendee not found.', 'error');
 }
 
+// Back goes where the user came from: the attendee list, the attendee's QR page, the walk-in desk, or (default) the scanner
+$from  = $_GET['from'] ?? '';
+$walkin_url = BASE_URL . '/pages/checkin/walkin.php?event_id=' . (int)$attendee['event_id'];
+$backs = [
+    'attendees' => [BASE_URL . '/pages/attendees/index.php?event_id=' . (int)$attendee['event_id'], 'Back to Attendees'],
+    'qr'        => [BASE_URL . '/pages/attendees/view_qr.php?id=' . $attendee_id, 'Back to QR Code'],
+    'walkin'    => [$walkin_url, 'Back to Walk-in'],
+];
+if (!isset($backs[$from])) $from = '';
+[$back_url, $back_label] = $backs[$from] ?? [BASE_URL . '/pages/checkin/scan.php?event_id=' . (int)$attendee['event_id'], 'Back to Scan'];
+
 if (isset($_GET['print']) && $_GET['print'] == '1') {
     $upd = $conn->prepare("UPDATE attendees SET badge_printed = TRUE WHERE id = ?");
     $upd->bind_param("i", $attendee_id);
     $upd->execute();
     logActivity('Badge Printed', $attendee['full_name']);
+    // Walk-in desk: after printing, go straight back to a blank walk-in form for the next guest
+    if ($from === 'walkin') redirect($walkin_url, 'Badge printed for ' . $attendee['full_name'] . '. Ready for the next walk-in.');
 }
-
-// Back goes where the user came from: the attendee list, the attendee's QR page, or (default) the scanner
-$from  = $_GET['from'] ?? '';
-$backs = [
-    'attendees' => [BASE_URL . '/pages/attendees/index.php?event_id=' . (int)$attendee['event_id'], 'Back to Attendees'],
-    'qr'        => [BASE_URL . '/pages/attendees/view_qr.php?id=' . $attendee_id, 'Back to QR Code'],
-];
-if (!isset($backs[$from])) $from = '';
-[$back_url, $back_label] = $backs[$from] ?? [BASE_URL . '/pages/checkin/scan.php?event_id=' . (int)$attendee['event_id'], 'Back to Scan'];
 
 $qr_url = getQRCodeImageUrl($attendee['qr_code'], $attendee['qr_image_path']);
 $tpl = badgeTemplateFor($attendee['badge_template_id']);   // the event's design (or the favorite); null = standard badge
@@ -173,10 +177,17 @@ $flash = getFlashMessage();
                         <?= icon('printer', ['class' => 'icon-svg icon-sm']) ?>
                         Print Badge
                     </button>
+                    <?php if ($from === 'walkin'): ?>
+                    <a href="<?= htmlspecialchars($walkin_url) ?>" class="btn-sm light lg">
+                        <?= icon('walk', ['class' => 'icon-svg icon-sm']) ?>
+                        Next Walk-in
+                    </a>
+                    <?php else: ?>
                     <a href="<?= BASE_URL ?>/pages/checkin/scan.php?event_id=<?= $attendee['event_id'] ?>" class="btn-sm light lg">
                         <?= icon('camera', ['class' => 'icon-svg icon-sm']) ?>
                         Scan Next
                     </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

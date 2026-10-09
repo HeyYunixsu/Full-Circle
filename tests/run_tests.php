@@ -405,6 +405,24 @@ t('S30', 'Login: 5 maling password -> naka-lock 15 min; tamang password habang n
     return str_contains($last['body'], 'locked for 15 minutes') && $right['code'] === 200 && str_contains($right['body'], 'locked for')
         && one("SELECT locked_until > NOW() FROM users WHERE email = 'zztest.lock@example.test'") == 1;
 });
+t('S31', 'Walk-in: "Send a copy" naka-off by default -> walang email o SMS na naipapadala', function () use ($eA, $staff) {
+    $form = ['full_name' => 'ZZTEST Walk Copy', 'email' => 'zztest.copy@example.test', 'mobile_number' => '09171234567', 'company' => 'ZZTEST Co'];
+    $r = http('/pages/checkin/walkin.php?event_id=' . $eA, $form, $staff);
+    $id = (int)one("SELECT id FROM attendees WHERE email = 'zztest.copy@example.test'");
+    return $r['code'] === 302 && $id
+        && one("SELECT COUNT(*) FROM email_queue WHERE attendee_id = $id") == 0
+        && one("SELECT COUNT(*) FROM sms_queue WHERE attendee_id = $id") == 0;
+});
+t('S32', 'Walk-in desk: badge page -> "Next Walk-in"; pag-print babalik sa walk-in form', function () use ($eA, $staff) {
+    $form = ['full_name' => 'ZZTEST Booth Two', 'email' => 'zztest.booth@example.test', 'mobile_number' => '09171234567', 'company' => 'ZZTEST Co'];
+    $reg = http('/pages/checkin/walkin.php?event_id=' . $eA, $form, $staff);
+    $id = (int)one("SELECT id FROM attendees WHERE email = 'zztest.booth@example.test'");
+    $badge = http('/pages/checkin/badge.php?attendee_id=' . $id . '&from=walkin', null, $staff);
+    $printed = http('/pages/checkin/badge.php?attendee_id=' . $id . '&from=walkin&print=1', null, $staff);
+    return str_contains($reg['to'], 'from=walkin') && str_contains($badge['body'], 'Next Walk-in')
+        && str_contains($printed['to'], '/pages/checkin/walkin.php?event_id=' . $eA)
+        && one("SELECT badge_printed FROM attendees WHERE id = $id") == 1;
+});
 
 foreach ([$staff, $admin] as $jar) @unlink($jar);
 } finally {

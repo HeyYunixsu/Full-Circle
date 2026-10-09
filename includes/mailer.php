@@ -78,6 +78,10 @@ function sendEmail($to_email, $to_name, $subject, $body_html, $qr_path = null) {
 }
 
 function getQREmailTemplate($attendee, $event) {
+    // Walk-ins get this at the desk, as a copy of the QR on the badge they are already wearing
+    $tip = ($attendee['registration_type'] ?? '') === 'walk-in'
+        ? 'Keep this QR on your phone. It works for session check-ins if you misplace your badge.'
+        : 'Save this email or take a screenshot so your QR is ready offline when you arrive.';
     $name           = htmlspecialchars($attendee['full_name']);
     $first_name     = htmlspecialchars(explode(' ', trim($attendee['full_name']))[0]);
     $company        = htmlspecialchars($attendee['company'] ?? '');
@@ -232,7 +236,7 @@ function getQREmailTemplate($attendee, $event) {
     <tr><td style="padding:12px 22px 18px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fef3c7;border-radius:8px;border-left:3px solid #d97706;">
             <tr><td style="padding:9px 12px;">
-                <span style="color:#92400e;font-size:11px;line-height:1.5;"><strong>Tip:</strong> Save this email or take a screenshot so your QR is ready offline when you arrive.</span>
+                <span style="color:#92400e;font-size:11px;line-height:1.5;"><strong>Tip:</strong> {$tip}</span>
             </td></tr>
         </table>
     </td></tr>
@@ -248,7 +252,8 @@ function getQREmailTemplate($attendee, $event) {
         <div style="height:1px;background:rgba(255,255,255,0.1);margin:10px 0;line-height:0;font-size:0;">&nbsp;</div>
         <p style="color:#a374b8;font-size:9px;margin:0;line-height:1.5;">
             &copy; Full Circle Events Asia, Inc.<br>
-            This is a transactional message for your registered event.
+            This is a transactional message for your registered event.<br>
+            Your name and contact details are used only for this event's check-in and updates (Data Privacy Act of 2012).
         </p>
     </td></tr>
 
