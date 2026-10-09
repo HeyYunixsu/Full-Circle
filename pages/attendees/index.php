@@ -33,7 +33,8 @@ if ($event_id) {
     $params = [$event_id];
     $types  = "i";
     if ($filter_company) { $sql .= " AND a.company = ?";           $params[] = $filter_company;          $types .= "s"; }
-    if ($filter_status)  { $sql .= " AND a.status = ?";            $params[] = $filter_status;           $types .= "s"; }
+    if ($filter_status === 'walk_in') { $sql .= " AND a.registration_type = 'walk-in'"; }   // "Walk-ins" in the status filter
+    elseif ($filter_status)  { $sql .= " AND a.status = ?";        $params[] = $filter_status;           $types .= "s"; }
     if ($search) {
         $sql .= " AND (a.full_name LIKE ? OR a.email LIKE ? OR a.attendee_code LIKE ? OR a.mobile_number LIKE ? OR a.designation LIKE ? OR a.company LIKE ?)";
         $sp = "%$search%";
@@ -124,6 +125,7 @@ $page_title = 'Attendees';
     #attendees-table th:last-child, #attendees-table td:last-child { position: sticky; right: 0; background: inherit; box-shadow: -1px 0 0 var(--color-border); }
     #attendees-table th:last-child { background: var(--off-white); }
     .status-pill { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; transition: all 0.4s; }
+    .status-walkin { background: var(--color-primary-soft); color: var(--wine-mid); margin-left: 4px; }
     .status-not_yet    { background: rgba(245,158,11,.15); color: #9a5a00; }
     .status-checked_in { background: rgba(16,185,129,.15); color: #1b7a4b; }
     .row-actions { display: flex; gap: 4px; }
@@ -383,7 +385,7 @@ $page_title = 'Attendees';
                                 </a>
                                 <?php if ($sms_ready && !$event_locked): ?>
                                 <a href="<?= BASE_URL ?>/api/notifications/send_both.php?event_id=<?= $event_id ?>&channel=sms"
-                                   data-confirm="<?= $sms_pending ?> attendee(s) with a mobile number and no SMS yet will get their QR link by text.<?= smsIsMock() ? '&#10;&#10;Mock mode is on: no real text is sent and nothing is charged.' : '&#10;&#10;This uses paid Semaphore credits.' ?>" data-confirm-title="Send SMS?" data-confirm-ok="Send SMS">
+                                   data-confirm="<?= $sms_pending ?> attendee(s) with a mobile number and no SMS yet will get their QR link by text.<?= smsIsMock() ? '' : '&#10;&#10;This uses paid Semaphore credits.' ?>" data-confirm-title="Send SMS?" data-confirm-ok="Send SMS">
                                     <span class="dot dot-sms"></span>
                                     <span>SMS only<?= $sms_pending ? ' (' . $sms_pending . ')' : '' ?><small>QR link to their phone</small></span>
                                 </a>
@@ -408,6 +410,7 @@ $page_title = 'Attendees';
                         <option value="">All statuses</option>
                         <option value="not_yet"    <?= $filter_status === 'not_yet'    ? 'selected' : '' ?>>Not yet</option>
                         <option value="checked_in" <?= $filter_status === 'checked_in' ? 'selected' : '' ?>>Checked in</option>
+                        <option value="walk_in"    <?= $filter_status === 'walk_in'    ? 'selected' : '' ?>>Walk-ins</option>
                     </select>
                     <?php if ($has_filters): ?>
                         <a class="fb-clear" href="?event_id=<?= (int)$event_id ?>">Clear</a>
@@ -435,7 +438,6 @@ $page_title = 'Attendees';
                             <tr id="row-<?= $a['id'] ?>">
                                 <td class="nowrap">
                                     <strong style="color: var(--purple-mid);"><?= htmlspecialchars($a['attendee_code']) ?></strong>
-                                    <span class="cell-sub"><?= ucfirst($a['registration_type']) ?></span>
                                 </td>
                                 <td class="cell-person">
                                     <span class="cell-main"><?= htmlspecialchars($a['full_name']) ?></span>
@@ -451,6 +453,7 @@ $page_title = 'Attendees';
                                 <td class="nowrap"><?= htmlspecialchars($a['mobile_number'] ?: '—') ?></td>
                                 <td id="status-<?= $a['id'] ?>" class="nowrap">
                                     <span class="status-pill status-<?= $a['status'] ?>"><?= ucfirst(str_replace('_', ' ', $a['status'])) ?></span>
+                                    <?php if ($a['registration_type'] === 'walk-in'): ?><span class="status-pill status-walkin" title="Registered at the event (walk-in)">Walk-in</span><?php endif; ?>
                                 </td>
                                 <td id="time-<?= $a['id'] ?>" class="nowrap" style="font-size: 12px; color: var(--gray-dark);"><?= $a['check_in_time'] ? date('M d, h:i A', strtotime($a['check_in_time'])) : '—' ?></td>
                                 <td>
@@ -883,7 +886,10 @@ function flashRow(id, status, checkInTime) {
     const timeCell   = document.getElementById('time-'   + id);
     if (statusCell) {
         const label = status === 'checked_in' ? 'Checked In' : status.replace('_', ' ');
-        statusCell.innerHTML = `<span class="status-pill status-${status}">${label.charAt(0).toUpperCase() + label.slice(1)}</span>`;
+        // Swap only the check-in pill so a Walk-in label next to it stays
+        const pill = `<span class="status-pill status-${status}">${label.charAt(0).toUpperCase() + label.slice(1)}</span>`;
+        const old = statusCell.querySelector('.status-pill:not(.status-walkin)');
+        if (old) old.outerHTML = pill; else statusCell.insertAdjacentHTML('afterbegin', pill);
     }
     if (timeCell && checkInTime) {
         const d = new Date(checkInTime);

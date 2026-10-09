@@ -267,7 +267,7 @@ $page_title = 'Walk-in Registration';
                     <?php if (smsIsConfigured()): ?>
                     <label class="check">
                         <input type="checkbox" name="send_sms" value="1" <?= isset($_POST['send_sms']) || $_SERVER['REQUEST_METHOD'] !== 'POST' ? 'checked' : '' ?>>
-                        Text their QR code link to this number<?= smsIsMock() ? ' <span class="optional">(test mode: no real text is sent)</span>' : '' ?>
+                        Text their QR code link to this number
                     </label>
                     <?php endif; ?>
 

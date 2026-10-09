@@ -354,7 +354,7 @@ t('S25', 'Create Event na may badge design -> naka-save sa event; badge page buk
     $a = addAttendee($ev, 'ZZTEST Badge Person', 'zztest.badge@example.test');
     $html = http('/pages/checkin/badge.php?attendee_id=' . $a['id'], null, $admin)['body'];
     return $tpl && (int)one("SELECT badge_template_id FROM events WHERE id = $ev") === $tpl
-        && str_contains($html, 'const START_TPL = ' . $tpl . ';');
+        && str_contains($html, 'data-template="' . $tpl . '"');
 });
 t('S26', 'Badge design ng event: staff bawal magpalit; admin puwede', function () use ($admin, $staff) {
     $ev = (int)one("SELECT id FROM events WHERE event_name = 'ZZTEST Badge Pick'");

@@ -79,7 +79,7 @@ if ($single_id) {
 
     if ($do_sms) {
         $r = sendOneSMS($conn, $a, $a);
-        if ($r['ok'])            $done[] = ($r['credits'] && smsIsMock() ? 'SMS (mock)' : 'SMS sent');
+        if ($r['ok'])            $done[] = 'SMS sent';
         elseif ($r['invalid'])   $done[] = 'no valid mobile';
         else                     $done[] = 'SMS failed: ' . ($r['msg'] ?? '');
     }
@@ -135,7 +135,7 @@ if ($do_email && $emailed > 0) {
 }
 
 $parts = [];
-if ($do_sms)   $parts[] = "SMS: {$sms_sent} sent" . ($sms_invalid ? ", {$sms_invalid} invalid number(s)" : "") . ($credits ? " (~{$credits} credits" . (smsIsMock() ? ", MOCK" : "") . ")" : "");
+if ($do_sms)   $parts[] = "SMS: {$sms_sent} sent" . ($sms_invalid ? ", {$sms_invalid} invalid number(s)" : "") . ($credits ? " (~{$credits} credits)" : "");
 if ($do_email) $parts[] = "Email: nothing new to send (all already sent — use Resend)";
 
 $msg = $parts ? implode(' | ', $parts) : 'Nothing was sent.';

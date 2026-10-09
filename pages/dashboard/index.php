@@ -145,6 +145,19 @@ $flash = getFlashMessage();
     /* Today: bold magenta number (no fill), so it matches the event-day circles; an event day gets the pink ring */
     .calendar-day.today, .calendar-day.today.has-event { color: var(--magenta); font-weight: 700; }
     .calendar-day.has-event { box-shadow: inset 0 0 0 2px var(--pink-bright); color: var(--color-text-strong); font-weight: 600; }
+    /* Event days are buttons: clicking one lists that day's events under the calendar */
+    button.calendar-day { border: 0; padding: 0; background: none; font-family: inherit; cursor: pointer; transition: background var(--dur-fast); }
+    button.calendar-day:hover { background: var(--pink-soft); }
+    button.calendar-day:focus-visible { outline: 2px solid var(--magenta); outline-offset: 2px; }
+    button.calendar-day[aria-pressed="true"] { background: var(--magenta); box-shadow: none; color: var(--white); }
+    .cal-events { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+    .cal-events h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--color-text-strong); }
+    .cal-hint { margin: 0; font-size: 13px; color: var(--color-text-muted); }
+    .cal-ev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin: 0 -10px; border-radius: 8px; text-decoration: none; color: inherit; }
+    .cal-ev:hover { background: var(--color-bg); }
+    .cal-ev-body { flex: 1; min-width: 0; }
+    .cal-ev-body b { display: block; font-size: 14px; color: var(--color-text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cal-ev-body small { font-size: 12px; color: var(--color-text-muted); }
 
     .overview-label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; color: var(--color-text-muted); }
     .overview-label b { color: var(--color-text-strong); font-weight: 600; }
@@ -315,20 +328,60 @@ $flash = getFlashMessage();
                 <div class="calendar-grid">
                     <?php foreach (['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?><div class="calendar-day-header"><?= $d ?></div><?php endforeach; ?>
                     <?php
-                    $event_days = array_map(fn($r) => (int)$r['d'], $conn->query("SELECT DAY(event_date) d FROM events WHERE YEAR(event_date) = YEAR(CURDATE()) AND MONTH(event_date) = MONTH(CURDATE()) AND status <> 'archived'")->fetch_all(MYSQLI_ASSOC));
+                    // This month's events by day (archived ones stay off the calendar)
+                    $cal_events = [];
+                    foreach ($conn->query("SELECT id, event_name, event_date, event_time, location, status FROM events
+                                           WHERE YEAR(event_date) = YEAR(CURDATE()) AND MONTH(event_date) = MONTH(CURDATE()) AND status <> 'archived'
+                                           ORDER BY event_date, event_time")->fetch_all(MYSQLI_ASSOC) as $ev) {
+                        $cal_events[(int)date('j', strtotime($ev['event_date']))][] = $ev;
+                    }
                     $first_day = date('w', strtotime(date('Y-m-01')));
                     $days_in_month = date('t');
-                    $today = date('j');
+                    $today = (int)date('j');
                     for ($i = 0; $i < $first_day; $i++) echo '<div></div>';
                     for ($day = 1; $day <= $days_in_month; $day++) {
-                        $is_today = $day == $today;
-                        $has_event = in_array($day, $event_days);
-                        $class = 'calendar-day' . ($is_today ? ' today' : '') . ($has_event ? ' has-event' : '');
-                        $tip = implode(' · ', array_filter([$is_today ? 'Today' : '', $has_event ? 'Event day' : '']));
-                        echo "<div class='$class'" . ($tip ? " title='$tip'" : '') . ">$day</div>";
+                        $is_today = $day === $today;
+                        $n = count($cal_events[$day] ?? []);
+                        $class = 'calendar-day' . ($is_today ? ' today' : '') . ($n ? ' has-event' : '');
+                        if ($n) {
+                            $label = date('F ', strtotime(date('Y-m-01'))) . $day . ($is_today ? ' (today)' : '') . ": $n event" . ($n === 1 ? '' : 's');
+                            echo "<button type='button' class='$class' data-cal-day='$day' aria-pressed='false' aria-controls='calEvents' title='" . htmlspecialchars($label, ENT_QUOTES) . "' aria-label='" . htmlspecialchars($label, ENT_QUOTES) . "'>$day</button>";
+                        } else {
+                            echo "<div class='$class'" . ($is_today ? " title='Today'" : '') . ">$day</div>";
+                        }
                     }
                     ?>
                 </div>
+                <div class="cal-events" id="calEvents" aria-live="polite">
+                    <p class="cal-hint" data-cal-panel="hint"><?= $cal_events ? 'Click a circled date to see its events.' : 'No events this month.' ?></p>
+                    <?php $pill = ['ongoing' => ['pill-ok', 'Ongoing'], 'upcoming' => ['pill-info', 'Upcoming'], 'completed' => ['pill-muted', 'Completed']];
+                    foreach ($cal_events as $day => $evs): ?>
+                    <div data-cal-panel="<?= $day ?>" hidden>
+                        <h4><?= date('l, F ', strtotime(date('Y-m-01'))) . $day ?><?= $day === $today ? ' &middot; Today' : '' ?></h4>
+                        <?php foreach ($evs as $ev): [$pc, $pl] = $pill[$ev['status']] ?? ['pill-muted', ucfirst($ev['status'])]; ?>
+                        <a class="cal-ev" href="<?= BASE_URL ?>/pages/events/view.php?id=<?= (int)$ev['id'] ?>">
+                            <span class="cal-ev-body">
+                                <b><?= htmlspecialchars($ev['event_name']) ?></b>
+                                <small><?= formatTime($ev['event_time']) ?> &middot; <?= htmlspecialchars($ev['location']) ?></small>
+                            </span>
+                            <span class="<?= $pc ?>"><?= $pl ?></span>
+                        </a>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <script>
+                // Clicking an event day shows its events under the calendar; today's events show first
+                (() => {
+                    const days = document.querySelectorAll('[data-cal-day]');
+                    const show = day => {
+                        days.forEach(b => b.setAttribute('aria-pressed', b.dataset.calDay === day));
+                        document.querySelectorAll('[data-cal-panel]').forEach(p => p.hidden = p.dataset.calPanel !== (day || 'hint'));
+                    };
+                    days.forEach(b => b.addEventListener('click', () => show(b.getAttribute('aria-pressed') === 'true' ? '' : b.dataset.calDay)));
+                    if (document.querySelector('[data-cal-day="<?= $today ?>"]')) show('<?= $today ?>');
+                })();
+                </script>
             </div>
             <div class="panel activity">
                 <div class="section-head"><h3>Recent Activity</h3></div>

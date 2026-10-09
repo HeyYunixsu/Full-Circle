@@ -57,7 +57,7 @@ $flash = getFlashMessage();
 
     @media print {
         body { background: white; margin: 0; padding: 0; }
-        .sidebar, .page-header, .no-print, .badge-actions, .badge-picker { display: none !important; }
+        .sidebar, .page-header, .no-print, .badge-actions { display: none !important; }
         .main-content { margin: 0 !important; padding: 0 !important; }
         .panel { border: none; padding: 0; }
         .badge { box-shadow: none !important; margin: 0 auto !important; page-break-inside: avoid; }
@@ -103,12 +103,10 @@ $flash = getFlashMessage();
             </div>
 
             <div class="panel">
-                <div class="badge-picker no-print form-group">
-                    <label for="tplPicker">Badge design</label>
-                    <select id="tplPicker" class="form-input" onchange="pickTemplate()">
-                        <option value="">Standard badge</option>
-                    </select>
-                </div>
+                <!-- The design is chosen per event (Create Event / event page), so every badge of the event matches -->
+                <p class="muted no-print" style="font-size: 13px; margin: 0;">
+                    Badge design: <b><?= $tpl ? htmlspecialchars($tpl['template_name']) : 'Standard badge' ?></b> &middot; set on the event page
+                </p>
 
                 <div class="badge-stage">
                     <div class="badge" id="defaultBadge"<?= $tpl ? ' style="display:none"' : '' ?>>
@@ -135,7 +133,7 @@ $flash = getFlashMessage();
                         </div>
                     </div>
 
-                    <div id="customBadge" style="<?= $tpl ? '' : 'display:none;' ?>margin:24px auto;"></div>
+                    <div id="customBadge" data-template="<?= $tpl ? (int)$tpl['id'] : 0 ?>" style="<?= $tpl ? '' : 'display:none;' ?>margin:24px auto;"></div>
                 </div>
 
                 <?php if ($can_edit): ?>
@@ -195,10 +193,7 @@ const ATTENDEE = {
     event:       <?= json_encode($attendee['event_name']) ?>,
     qr_url:      <?= json_encode($qr_url) ?>
 };
-const START_TPL = <?= $tpl ? (int)$tpl['id'] : 0 ?>;
-let TEMPLATES = [];
-
-let LAYOUT = <?= $tpl ? json_encode(json_decode($tpl['layout_json'], true), JSON_HEX_TAG) : 'null' ?>;   // null = standard badge
+const LAYOUT = <?= $tpl ? json_encode(json_decode($tpl['layout_json'], true), JSON_HEX_TAG) : 'null' ?>;   // null = standard badge
 
 // Draw the badge on screen from ATTENDEE (also after every edit)
 function redraw() {
@@ -210,39 +205,9 @@ function redraw() {
     document.getElementById('stdName').textContent = ATTENDEE.name;
     document.getElementById('stdCompany').textContent = ATTENDEE.company;
 }
-// Draw the event's design straight away (again once the fonts load, so the fit is measured right); other designs load after
+// Draw the event's design straight away (again once the fonts load, so the fit is measured right)
 redraw();
 if (document.fonts) document.fonts.ready.then(redraw);
-
-async function loadTemplates() {
-    try {
-        const res = await fetch('<?= BASE_URL ?>/api/badges/list_templates.php');
-        const d = await res.json();
-        if (!d.success) return;
-        TEMPLATES = d.templates;
-        const sel = document.getElementById('tplPicker');
-        d.templates.forEach(t => {
-            const o = document.createElement('option');
-            o.value = t.id;
-            o.textContent = (t.is_favorite ? '\u2605 ' : '') + t.name + (t.id === START_TPL ? ' (this event)' : '');
-            sel.appendChild(o);
-        });
-        sel.value = START_TPL || '';
-    } catch (e) {}
-}
-
-// Switching here changes this one badge only; the event's design is set on the event page
-function pickTemplate() {
-    const id = parseInt(document.getElementById('tplPicker').value) || 0;
-    const def = document.getElementById('defaultBadge');
-    const box = document.getElementById('customBadge');
-    const tpl = TEMPLATES.find(t => t.id === id);
-    LAYOUT = tpl && tpl.layout ? tpl.layout : null;
-    def.style.display = LAYOUT ? 'none' : 'flex';
-    box.style.display = LAYOUT ? 'block' : 'none';
-    box.innerHTML = '';
-    redraw();
-}
 
 // ---- Wrong name? Edit details (only rendered for users allowed to edit this attendee)
 const SAVED = { name: ATTENDEE.name, company: ATTENDEE.company, designation: ATTENDEE.designation };
@@ -310,7 +275,6 @@ async function printBadge() {
     }, 1000);
 }
 
-loadTemplates();
 </script>
 </body>
 </html>
