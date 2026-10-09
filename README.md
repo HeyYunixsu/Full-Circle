@@ -2,6 +2,8 @@
 **Web-Based Event Check-In with QR Code & Real-Time Monitoring**
 *Full Circle Events Asia, Inc.*
 
+> **Working on the code (or using an AI assistant)?** Read [HANDOFF.md](HANDOFF.md) first: setup, structure, and the DO / DON'T rules. AI tools load it automatically through `AGENTS.md` / `CLAUDE.md`.
+
 ---
 
 ## QUICK START (5 MINUTES)
