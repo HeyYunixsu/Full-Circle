@@ -48,6 +48,7 @@ $page_title = 'Sessions';
     .sess-actions .btn-sm { flex: 1; padding: 0 10px; }
     .modal .form-group { margin-bottom: 12px; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -55,9 +56,6 @@ $page_title = 'Sessions';
     <main class="main-content">
         <?php $back_url = ($current_event ? BASE_URL . '/pages/events/view.php?id=' . (int)$event_id : null); $back_label = 'Back to event'; include __DIR__ . '/../../includes/header.php'; ?>
 
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>"><?= icon($flash['type'] === 'success' ? 'check' : 'alert', ['class' => 'icon-svg icon-sm']) ?> <?= $flash['message'] ?></div>
-        <?php endif; ?>
 
         <?php if (!$current_event): ?>
             <div class="empty-state">
@@ -139,32 +137,28 @@ $page_title = 'Sessions';
             <input type="hidden" name="event_id" value="<?= $event_id ?>">
             <input type="hidden" name="id" id="f-id" value="">
             <div class="form-group">
-                <label for="f-name">Session / Seminar Name *</label>
+                <label for="f-name">Session name</label>
                 <input type="text" name="session_name" id="f-name" class="form-input" required placeholder="e.g. Seminar 1: Cloud Basics">
             </div>
             <div class="form-grid">
-                <div class="form-group"><label for="f-speaker">Speaker Name</label><input type="text" name="speaker_name" id="f-speaker" class="form-input" placeholder="e.g. Juan Cruz"></div>
-                <div class="form-group"><label for="f-role">Speaker Role</label><input type="text" name="speaker_role" id="f-role" class="form-input" placeholder="e.g. AWS Architect"></div>
-            </div>
-            <div class="form-group">
-                <label for="f-date">Date</label>
-                <input type="date" name="session_date" id="f-date" class="form-input" min="2000-01-01" max="2100-12-31">
+                <div class="form-group"><label for="f-speaker">Speaker <span class="optional">(optional)</span></label><input type="text" name="speaker_name" id="f-speaker" class="form-input" placeholder="e.g. Juan Cruz"></div>
+                <div class="form-group"><label for="f-role">Speaker's role <span class="optional">(optional)</span></label><input type="text" name="speaker_role" id="f-role" class="form-input" placeholder="e.g. AWS Architect"></div>
             </div>
             <div class="form-grid">
-                <div class="form-group"><label for="f-start">Start Time</label><input type="time" name="start_time" id="f-start" class="form-input"></div>
-                <div class="form-group"><label for="f-end">End Time</label><input type="time" name="end_time" id="f-end" class="form-input"></div>
+                <div class="form-group"><label for="f-date">Date <span class="optional">(optional)</span></label><input type="date" name="session_date" id="f-date" class="form-input" min="2000-01-01" max="2100-12-31"></div>
+                <div class="form-group"><label for="f-loc">Room <span class="optional">(optional)</span></label><input type="text" name="location" id="f-loc" class="form-input" placeholder="e.g. Function Room A"></div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group"><label for="f-start">Starts <span class="optional">(optional)</span></label><input type="time" name="start_time" id="f-start" class="form-input"></div>
+                <div class="form-group"><label for="f-end">Ends <span class="optional">(optional)</span></label><input type="time" name="end_time" id="f-end" class="form-input"></div>
             </div>
             <div class="form-group">
-                <label for="f-loc">Location / Room</label>
-                <input type="text" name="location" id="f-loc" class="form-input" placeholder="e.g. Function Room A">
-            </div>
-            <div class="form-group">
-                <label for="f-desc">Description</label>
+                <label for="f-desc">Description <span class="optional">(optional)</span></label>
                 <textarea name="description" id="f-desc" class="form-input" rows="2"></textarea>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeSession()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Session</button>
+                <button type="submit" class="btn btn-primary">Save session</button>
             </div>
         </form>
     </div>
@@ -176,7 +170,7 @@ function openSession(s) {
     document.getElementById('f-name').value    = s ? (s.session_name || '') : '';
     document.getElementById('f-speaker').value = s ? (s.speaker_name || '') : '';
     document.getElementById('f-role').value    = s ? (s.speaker_role || '') : '';
-    document.getElementById('f-date').value    = s ? (s.session_date || '') : '';
+    document.getElementById('f-date').value    = s ? (s.session_date || '') : <?= json_encode($current_event['event_date'] ?? '') ?>;
     document.getElementById('f-start').value   = s ? (s.start_time || '') : '';
     document.getElementById('f-end').value     = s ? (s.end_time || '') : '';
     document.getElementById('f-loc').value     = s ? (s.location || '') : '';
@@ -185,6 +179,10 @@ function openSession(s) {
     document.getElementById('f-name').focus();
 }
 function closeSession() { document.getElementById('sess-overlay').classList.remove('show'); }
+['f-start', 'f-end'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+    const start = document.getElementById('f-start').value, end = document.getElementById('f-end');
+    end.setCustomValidity(start && end.value && end.value <= start ? 'The end time must be after the start time.' : '');
+}));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSession(); });
 </script>
 <?php endif; ?>

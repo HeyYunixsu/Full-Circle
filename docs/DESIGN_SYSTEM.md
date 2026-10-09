@@ -131,6 +131,14 @@ Interaction states for every interactive element:
 | disabled | opacity .55, `cursor: not-allowed` |
 | loading | `.spinner` + disabled button, text "Sending..." |
 
+### Forms
+
+- Required fields have no marker; optional fields end their label with `<span class="optional">(optional)</span>`. No asterisks.
+- Labels in sentence case and linked to their input (`for` / `id`). Hints go in `.form-help` below the input, tied with `aria-describedby`.
+- Long forms: a `.form-head` (kicker, title, one line on what happens next) and `.form-section` groups with a `.form-section-title`.
+- After a failed submit, every field keeps what was typed.
+- `.form-actions`: Cancel then the primary action, right-aligned and sized to their text (full width only on phones).
+
 ## 5. Page templates
 
 **Admin page** (every screen behind login)
@@ -156,6 +164,9 @@ require bootstrap -> requireRole -> handle POST -> queries
 `.auth-mark` brand row on top, no sidebar.
 
 ## 6. Responsive rules
+
+**Phone CSS lives in `assets/css/mobile.css`** (loaded after each page's styles with `media="(max-width: 768px)"`), so desktop never reads it. Add phone fixes there, not in style.css or page `<style>` blocks. Page-only rules are scoped by the page's body class, e.g. `.page-attendees .fb-search { … }`; add a `page-<name>` class to that page's `<body>` if it has none.
+
 
 - Breakpoint 768px: sidebar becomes a 70px icon rail, `.main-content` padding 18/14, toolbar form full
   width, KPI grid 2-up, modal actions stacked, form actions stacked, steps stacked.

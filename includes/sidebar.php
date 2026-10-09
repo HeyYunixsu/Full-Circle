@@ -28,6 +28,7 @@ $sections = [
 
 // Check-in shortcut for the next or running event (the most used action on event day)
 $cta_event = getActiveEvent();
+$cta_live  = (int)$conn->query("SELECT COUNT(*) c FROM events WHERE status = 'ongoing'")->fetch_assoc()['c'];   // >1: let staff pick
 ?>
 <aside class="sidebar">
     <div class="sidebar-logo">
@@ -49,11 +50,11 @@ $cta_event = getActiveEvent();
     </nav>
 
     <?php if ($cta_event): $live = $cta_event['status'] === 'ongoing'; ?>
-    <a class="sidebar-cta" href="<?= BASE_URL ?>/pages/checkin/index.php?event_id=<?= (int)$cta_event['id'] ?>" title="Open check-in for <?= htmlspecialchars($cta_event['event_name']) ?>">
+    <a class="sidebar-cta" href="<?= BASE_URL ?>/pages/checkin/<?= $cta_live > 1 ? 'choose.php' : 'index.php?event_id=' . (int)$cta_event['id'] ?>" title="<?= $cta_live > 1 ? 'Choose which live event to check in' : 'Open check-in for ' . htmlspecialchars($cta_event['event_name']) ?>">
         <?= icon('camera', ['class' => 'icon-svg']) ?>
         <div>
             <b>Open check-in</b>
-            <small><span class="cta-state<?= $live ? ' live' : '' ?>"><?= $live ? 'Live' : 'Next' ?></span> <?= htmlspecialchars($cta_event['event_name']) ?></small>
+            <small><span class="cta-state<?= $live ? ' live' : '' ?>"><?= $live ? 'Live' : 'Next' ?></span> <?= $cta_live > 1 ? $cta_live . ' events' : htmlspecialchars($cta_event['event_name']) ?></small>
         </div>
     </a>
     <?php endif; ?>

@@ -80,11 +80,6 @@ $page_title = 'Attendees';
     .es-progress { margin-left: auto; display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--color-text-muted); white-space: nowrap; }
     .es-progress strong { color: var(--color-text-strong); }
     .es-progress .progress { width: 150px; }
-    @media (max-width: 768px) {
-        .es-select, .es-select select { width: 100%; max-width: none; }
-        .es-progress { margin-left: 0; width: 100%; }
-        .es-progress .progress { flex: 1; }
-    }
     /* Search and filters live inside the table card, right above the rows they filter */
     .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .filter-bar select, .fb-search { height: 40px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background-color: var(--color-surface); font-size: 14px; color: var(--color-text); transition: border-color var(--dur-fast), box-shadow var(--dur-fast); }
@@ -102,7 +97,6 @@ $page_title = 'Attendees';
     .tc-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--color-text-strong); }
     .tc-nomatch { text-align: center; padding: 40px 16px !important; color: var(--color-text-muted); }
     .tc-nomatch a { color: var(--magenta); font-weight: 600; }
-    @media (max-width: 768px) { .filter-bar select { flex: 1 1 140px; max-width: none; } .fb-search { flex: 1 1 100%; } .tc-showing { margin-left: 0; } }
     /* No overflow clipping here, so the Send Invite menu can drop over the table; the scroll area rounds the bottom corners instead */
     .table-container { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); position: relative; }
     .table-actions { padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); flex-wrap: wrap; gap: 12px; }
@@ -280,15 +274,13 @@ $page_title = 'Attendees';
         .print-badge { position: fixed; top: 0; left: 0; width: 360px; height: 220px; display: flex !important; box-shadow: none !important; border: none !important; }
     }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body page-attendees">
 <div class="dashboard-container">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <main class="main-content">
         <?php $page_has_search = true; $back_url = $current_event ? BASE_URL . '/pages/events/view.php?id=' . (int)$event_id : null; $back_label = 'Back to event'; include __DIR__ . '/../../includes/header.php'; ?>
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>" style="display:flex; align-items:center; gap:8px;"><?= $flash['type'] === 'success' ? icon('check-circle', ['class' => 'icon-svg icon-sm']) : '' ?> <?= $flash['message'] ?></div>
-        <?php endif; ?>
         <?php
             $ev_stats    = $current_event ? getEventStats($event_id) : null;
             $ev_total    = $ev_stats['total'] ?? 0;
@@ -344,8 +336,12 @@ $page_title = 'Attendees';
                 </div>
                 <div class="empty">
                     <h3 style="color: var(--purple-mid);">No attendees yet</h3>
+                    <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                     <p style="margin: 12px 0;">Upload a CSV file to add attendees.</p>
                     <a href="<?= BASE_URL ?>/pages/attendees/upload.php?event_id=<?= $event_id ?>" class="btn btn-primary" style="display: inline-flex; align-items:center; gap:8px; width: auto; padding: 10px 20px;"><?= icon('upload', ['class' => 'icon-svg icon-sm']) ?> Upload Attendees</a>
+                    <?php else: ?>
+                    <p style="margin: 12px 0;">An admin can upload the attendee list. Walk-ins can still be registered at check-in.</p>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php else: ?>
@@ -353,7 +349,8 @@ $page_title = 'Attendees';
                 <div class="table-actions">
                     <div class="tc-title"><?= $ev_total ?> attendee<?= $ev_total === 1 ? '' : 's' ?></div>
                     <div class="btn-group">
-                        <button type="button" class="btn-sm light" onclick="openScanner()"><?= icon('camera', ['class' => 'icon-svg icon-sm']) ?> Scan QR</button>
+                        <?php $scan_closed = $current_event ? checkinClosedReason($current_event) : null; ?>
+                        <button type="button" class="btn-sm light" onclick="openScanner()"<?= $scan_closed ? ' disabled title="' . htmlspecialchars($scan_closed) . '"' : '' ?>><?= icon('camera', ['class' => 'icon-svg icon-sm']) ?> Scan QR</button>
                         <?php
                         if ($current_event && ($current_event['status'] ?? '') !== 'archived'
                             && in_array($_SESSION['role'] ?? '', ['admin', 'event_manager', 'super_admin'])):

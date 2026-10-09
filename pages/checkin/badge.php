@@ -73,6 +73,7 @@ $flash = getFlashMessage();
     .badge-qr { width: 70px; height: 70px; border: 1px solid var(--color-border); padding: 3px; border-radius: 4px; background: var(--white); }
     .badge-footer { font-size: 9px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .8px; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -83,9 +84,6 @@ $flash = getFlashMessage();
 
         <div class="badge-screen">
             <div class="no-print">
-                <?php if ($flash): ?>
-                    <div class="alert alert-<?= $flash['type'] ?>"><?= icon($flash['type'] === 'success' ? 'check' : 'alert', ['class' => 'icon-svg icon-sm']) ?> <?= $flash['message'] ?></div>
-                <?php endif; ?>
                 <div class="page-intro">
                     <div>
                         <h2>Badge Preview</h2>

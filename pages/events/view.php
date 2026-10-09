@@ -275,31 +275,21 @@ $page_title = $event['event_name'];
         .info-grid { grid-template-columns: 1fr; }
         .event-hero-actions { position: static; margin-bottom: 20px; max-width: 100%; }
     }
-    @media (max-width: 600px) {
-        .quick-actions { grid-template-columns: repeat(2, 1fr); }
-        .stats-grid { grid-template-columns: 1fr; }
-        .event-hero { padding: 20px; }
-        .event-hero-meta { flex-direction: column; gap: 8px; }
-    }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body page-event-view">
 <div class="dashboard-container">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <main class="main-content">
         <?php $back_url = BASE_URL . '/pages/events/index.php'; $back_label = 'Back to Events'; include __DIR__ . '/../../includes/header.php'; ?>
 
 
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>" style="margin-bottom: 20px;">
-                <?= icon($flash['type'] === 'success' ? 'check' : 'alert', ['class' => 'icon-svg icon-sm']) ?>
-                <?= $flash['message'] ?>
-            </div>
-        <?php endif; ?>
 
         <!-- Event Hero Section -->
         <div class="event-hero">
             <div class="event-hero-actions">
+                <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                 <?php if ($event['status'] === 'upcoming'): ?>
                     <a href="<?= BASE_URL ?>/api/events/update_status.php?id=<?= $event_id ?>&status=ongoing"
                        class="status-btn ongoing-btn"
@@ -358,6 +348,7 @@ $page_title = $event['event_name'];
                         Locked &mdash; Permanent
                     </span>
                 <?php endif; ?>
+                <?php endif; ?>
             </div>
 
             <span class="event-status-badge"><?= ucfirst($event['status']) ?></span>
@@ -373,10 +364,12 @@ $page_title = $event['event_name'];
 
         <!-- Quick Action Buttons -->
         <div class="quick-actions">
+            <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <a href="<?= BASE_URL ?>/pages/attendees/upload.php?event_id=<?= $event_id ?>" class="action-btn">
                 <div class="action-icon"><?= icon('upload', ['class' => 'icon-svg']) ?></div>
                 <div class="action-label">Upload Attendees</div>
             </a>
+            <?php endif; ?>
             <a href="<?= BASE_URL ?>/pages/attendees/index.php?event_id=<?= $event_id ?>" class="action-btn">
                 <div class="action-icon"><?= icon('users', ['class' => 'icon-svg']) ?></div>
                 <div class="action-label">View Attendees</div>
@@ -450,6 +443,15 @@ $page_title = $event['event_name'];
 
             <div class="info-card">
                 <div class="info-title">
+                    <?= icon('bar-chart', ['class' => 'icon-svg']) ?>
+                    Progress
+                </div>
+                <div class="cap-row cap-event">
+                    <div class="cap-top"><b>Checked in</b><span class="cap-count"><strong><?= (int)$stats['checked_in'] ?></strong> / <?= (int)$stats['total'] ?> &middot; <?= $stats['percentage'] ?>%</span></div>
+                    <div class="progress"><i style="width: <?= min(100, max(0, (float)$stats['percentage'])) ?>%"></i></div>
+                </div>
+
+                <div class="info-title" style="margin-top: 28px;">
                     <?= icon('building', ['class' => 'icon-svg']) ?>
                     Companies
                 </div>
@@ -475,16 +477,6 @@ $page_title = $event['event_name'];
                     <a class="cap-link" href="<?= BASE_URL ?>/pages/companies/index.php?event_id=<?= $event_id ?>">Set company limits</a>
                 <?php endif; ?>
 
-                <div style="margin-top: 28px;">
-                    <div class="info-title">
-                        <?= icon('bar-chart', ['class' => 'icon-svg']) ?>
-                        Progress
-                    </div>
-                    <div class="cap-row cap-event">
-                        <div class="cap-top"><b>Checked in</b><span class="cap-count"><strong><?= (int)$stats['checked_in'] ?></strong> / <?= (int)$stats['total'] ?> &middot; <?= $stats['percentage'] ?>%</span></div>
-                        <div class="progress"><i style="width: <?= min(100, max(0, (float)$stats['percentage'])) ?>%"></i></div>
-                    </div>
-                </div>
             </div>
         </div>
     </main>

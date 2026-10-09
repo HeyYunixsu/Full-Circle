@@ -231,7 +231,6 @@ input, select, textarea { font-family: inherit; outline: none; }
 .sidebar-link .icon-svg { width: 18px; height: 18px; flex-shrink: 0; }
 .sidebar-link.active .icon-svg { color: var(--pink-bright); }
 
-
 .main-content { flex: 1; margin-left: 220px; padding: 28px 36px; min-width: 0; }
 
 .page-header {
@@ -411,22 +410,6 @@ input, select, textarea { font-family: inherit; outline: none; }
 .btn-on-dark:hover { background: rgba(255,255,255,0.18); }
 
 /* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
-    .sidebar { width: 70px; padding: 0 8px 16px; }
-    .sidebar-logo { justify-content: center; padding: 0; }
-    .sidebar-logo-name { display: none; }
-    .sidebar-link span:not(.icon) { display: none; }
-    .sidebar-link { justify-content: center; padding: 12px; }
-    .sidebar-link.active::before { left: -8px; }
-    .main-content { margin-left: 70px; padding: 18px 14px; }
-    .page-header { margin: -18px -14px 18px; padding: 0 14px; height: 56px; }
-    .page-title { font-size: 19px; }
-    .user-text { display: none; }
-    .user-info { padding: 3px 8px 3px 3px; min-width: 0; height: 42px; }
-    .user-avatar { width: 34px; height: 34px; }
-    .auth-card { padding: 30px 20px; }
-    .event-tabs { overflow-x: auto; }
-}
 
 /* ================================================================
    SHARED COMPONENTS — see docs/DESIGN_SYSTEM.md
@@ -633,22 +616,6 @@ input, select, textarea { font-family: inherit; outline: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ----- Responsive ----- */
-@media (max-width: 768px) {
-    .toolbar form { width: 100%; }
-    .toolbar select, .toolbar input[type=text], .toolbar input[type=email], .toolbar input[type=password] { flex: 1 1 140px; }
-    .toolbar .spacer { display: none; }
-    .panel { padding: 16px; }
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    .stat-value { font-size: 26px; }
-    .modal-actions { flex-direction: column; }
-    .modal { padding: 20px; }
-    .steps { flex-direction: column; }
-    .page-intro { align-items: flex-start; }
-    .hero { padding: 18px; }
-    .form-actions { flex-direction: column-reverse; }
-    .form-actions .btn, .form-actions .btn-sm { width: 100%; }
-}
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -676,7 +643,6 @@ input, select, textarea { font-family: inherit; outline: none; }
 .topbar-search input::placeholder { color: var(--color-text-faint); }
 .topbar-add { height: 46px; padding: 0 20px; font-size: 14px; }
 @media (max-width: 1100px) { .topbar-search { width: 200px; } }
-@media (max-width: 768px) { .topbar-search { display: none; } .topbar-add span { display: none; } .topbar-add { width: 36px; height: 36px; padding: 0; } }
 
 /* Confirm / alert dialog (assets/js/dialog.js), replaces the browser's confirm() popups */
 .dialog .modal { max-width: 440px; padding: 24px; }
@@ -692,7 +658,6 @@ input, select, textarea { font-family: inherit; outline: none; }
 @keyframes dlgIn { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
 .btn-danger-solid { background: var(--danger); color: var(--white); }
 .btn-danger-solid:hover { background: #c9363b; }
-@media (max-width: 768px) { .dialog .modal-actions { flex-direction: column-reverse; } .dialog .modal-actions .btn { width: 100%; } }
 
 /* Capacity counters: "registered / limit" per company (event page, Companies page) */
 .cap-row { padding: 10px 0; border-bottom: 1px solid var(--color-border-faint); }
@@ -759,11 +724,6 @@ h1, h2, h3, .page-title { letter-spacing: -0.3px; }
 .cta-state { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: rgba(255, 255, 255, 0.85); margin-right: 2px; }
 .cta-state.live { color: #6ee7a8; }
 .cta-state.live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-@media (max-width: 768px) {
-    .sidebar-section { display: none; }
-    .sidebar-cta { justify-content: center; padding: 12px 0; }
-    .sidebar-cta > div { display: none; }
-}
 
 /* Back arrow in the sticky top bar (set $back_url / $back_label before including header.php) */
 .page-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -771,5 +731,38 @@ h1, h2, h3, .page-title { letter-spacing: -0.3px; }
 .topbar-back { width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-strong); transition: border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast); }
 .topbar-back:hover { border-color: var(--magenta); color: var(--magenta); background: var(--color-primary-soft); }
 .topbar-back .icon-svg { width: 18px; height: 18px; }
-@media (max-width: 768px) { .topbar-back { width: 34px; height: 34px; } }
 @media print { .topbar-back { display: none; } }
+
+/* Pop-up notifications for the result of an action (rendered by includes/header.php) */
+.flash-stack { position: fixed; top: 76px; right: 20px; z-index: 10000; width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.flash-toast { --ft-color: var(--success); --ft-bg: var(--success-bg); pointer-events: auto; position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 12px; padding: 14px 12px 14px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-left: 4px solid var(--ft-color); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); color: var(--color-text-strong); font-size: 14px; line-height: 1.45; animation: ft-in .25s ease-out both; }
+.flash-toast.hide { animation: ft-out .2s ease-in forwards; }
+.flash-error   { --ft-color: var(--danger);  --ft-bg: var(--danger-bg); }
+.flash-warning { --ft-color: var(--warning); --ft-bg: var(--warning-bg); }
+.flash-info    { --ft-color: var(--info);    --ft-bg: var(--info-bg); }
+.ft-icon { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--ft-bg); color: var(--ft-color); }
+.ft-icon .icon-svg { width: 16px; height: 16px; }
+.ft-body { flex: 1; min-width: 0; padding-top: 3px; overflow-wrap: anywhere; }
+.ft-close { flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--color-text-muted); cursor: pointer; display: grid; place-items: center; }
+.ft-close:hover { background: var(--color-bg); color: var(--color-text-strong); }
+.ft-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ft-timer { position: absolute; left: 0; bottom: 0; width: 100%; height: 3px; background: var(--ft-color); opacity: .35; transform-origin: left; animation: ft-timer var(--ft-life, 5s) linear forwards; }
+.flash-toast:hover .ft-timer, .flash-toast:focus-within .ft-timer { animation-play-state: paused; }
+@keyframes ft-in    { from { opacity: 0; transform: translateX(24px); } }
+@keyframes ft-out   { to   { opacity: 0; transform: translateX(24px); } }
+@keyframes ft-timer { to   { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .flash-toast, .flash-toast.hide { animation: none; } .ft-timer { opacity: 0; } }
+@media print { .flash-stack { display: none; } }
+
+/* Forms: required fields are unmarked, optional ones say "(optional)"; long forms are split into sections */
+.optional { font-weight: 400; color: var(--color-text-muted); }
+.form-head { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border); }
+.form-head .kicker { font-size: 12px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--color-text-muted); }
+.form-head h3 { font-family: var(--font-display); font-size: 18px; margin: 2px 0 4px; color: var(--color-text-strong); }
+.form-head p { font-size: 13px; color: var(--color-text-muted); }
+.form-section + .form-section { margin-top: 6px; padding-top: 20px; border-top: 1px solid var(--color-border); }
+.form-section-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--color-text-strong); margin-bottom: 14px; }
+textarea.form-input { resize: vertical; min-height: 84px; }
+
+/* A form that is already sending (assets/js/dialog.js): show the click registered */
+button[aria-busy="true"], input[type="submit"][aria-busy="true"] { opacity: .65; cursor: progress; }

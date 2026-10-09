@@ -2,6 +2,10 @@
 require_once __DIR__ . '/../../core/bootstrap.php';
 requireLogin();
 $event_id = (int)($_GET['event_id'] ?? 0);
+if (!$event_id && (int)$conn->query("SELECT COUNT(*) c FROM events WHERE status = 'ongoing'")->fetch_assoc()['c'] > 1) {
+    header('Location: ' . BASE_URL . '/pages/checkin/choose.php');
+    exit;
+}
 if (!$event_id) {
     $latest = $conn->query("SELECT id FROM events WHERE status IN ('upcoming','ongoing') ORDER BY event_date ASC LIMIT 1");
     if ($latest->num_rows > 0) $event_id = $latest->fetch_assoc()['id'];
@@ -39,7 +43,9 @@ $page_title = 'Check-In';
     .company-row .count { text-align: right; }
     .company-row .count b { font-variant-numeric: tabular-nums; }
     .recent-item > div:not(.avatar) { flex: 1; min-width: 0; }
+    .action-card.is-disabled { opacity: .45; pointer-events: none; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -52,16 +58,20 @@ $page_title = 'Check-In';
                 <h2><?= htmlspecialchars($event['event_name']) ?></h2>
                 <p><?= icon('calendar', ['class' => 'icon-svg']) ?> <?= formatDate($event['event_date']) ?> at <?= htmlspecialchars($event['location']) ?></p>
             </div>
-            <span class="pill-ok" role="status">Live &middot; updates every 2s</span>
+            <?php $closed = checkinClosedReason($event); ?>
+            <?php if ($closed): ?><span class="pill-muted">Check-in closed</span><?php else: ?><span class="pill-ok" role="status">Live &middot; updates every 2s</span><?php endif; ?>
         </div>
 
+        <?php if ($closed): ?>
+            <div class="alert alert-warning" role="status"><?= icon('alert', ['class' => 'icon-svg icon-sm']) ?> <?= htmlspecialchars($closed) ?></div>
+        <?php endif; ?>
         <div class="checkin-actions">
-            <a href="<?= BASE_URL ?>/pages/checkin/scan.php?event_id=<?= $event_id ?>" class="action-card">
+            <a <?= $closed ? 'aria-disabled="true"' : 'href="' . BASE_URL . '/pages/checkin/scan.php?event_id=' . $event_id . '"' ?> class="action-card<?= $closed ? ' is-disabled' : '' ?>">
                 <div class="icon-circle"><?= icon('camera', ['class' => 'icon-svg']) ?></div>
                 <div class="action-label">Scan QR Code</div>
                 <div class="action-desc">Use the camera to scan an attendee QR</div>
             </a>
-            <a href="<?= BASE_URL ?>/pages/checkin/walkin.php?event_id=<?= $event_id ?>" class="action-card">
+            <a <?= $closed ? 'aria-disabled="true"' : 'href="' . BASE_URL . '/pages/checkin/walkin.php?event_id=' . $event_id . '"' ?> class="action-card<?= $closed ? ' is-disabled' : '' ?>">
                 <div class="icon-circle"><?= icon('walk', ['class' => 'icon-svg']) ?></div>
                 <div class="action-label">Walk-in Entry</div>
                 <div class="action-desc">Register an unlisted attendee</div>

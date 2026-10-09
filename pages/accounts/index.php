@@ -112,6 +112,7 @@ $role_label = fn($r) => ucwords(str_replace('_', ' ', $r));
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= $page_title ?> &mdash; <?= SITE_NAME ?></title>
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=<?= ASSET_VER ?>">
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -119,9 +120,6 @@ $role_label = fn($r) => ucwords(str_replace('_', ' ', $r));
     <main class="main-content">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>"><?= $flash['message'] ?></div>
-        <?php endif; ?>
 
         <div class="panel">
             <h3>Add account</h3>

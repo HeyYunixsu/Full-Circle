@@ -85,7 +85,8 @@ if ($single_id) {
     }
 
     logActivity('Invite Sent', ucfirst($channel) . ' to ' . $a['full_name'] . ' — ' . implode(', ', $done));
-    redirect($back, ucfirst($channel) . ': ' . implode(' | ', $done), 'success');
+    $failed = (bool)preg_grep('/failed|no valid/i', $done);
+    redirect($back, 'QR code for ' . $a['full_name'] . ': ' . implode(', ', $done) . '.', $failed ? 'error' : 'success');
 }
 
 $stmt = $conn->prepare("SELECT * FROM events WHERE id = ?");

@@ -57,6 +57,7 @@ $page_title = 'Feedback';
     .comment p { margin: 6px 0 0; font-size: 14px; color: var(--gray-dark); white-space: pre-line; }
     .comment small { color: var(--gray-mid); }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -64,9 +65,6 @@ $page_title = 'Feedback';
     <main class="main-content">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>"><?= $flash['message'] ?></div>
-        <?php endif; ?>
 
         <?php if (!$event): ?>
             <div class="empty-note">No events yet. Create an event first.</div>

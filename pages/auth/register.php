@@ -89,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .auth-card { max-width: 500px; }
     .form-grid { gap: 0 12px; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="auth-body">
 
@@ -106,14 +107,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="POST" action="">
         <div class="form-grid">
             <div class="form-group">
-                <label for="first_name">First Name *</label>
+                <label for="first_name">First name</label>
                 <input type="text" id="first_name" name="first_name" class="form-input"
                        placeholder="Juan" required autocomplete="given-name"
                        value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>">
             </div>
 
             <div class="form-group">
-                <label for="last_name">Last Name *</label>
+                <label for="last_name">Last name</label>
                 <input type="text" id="last_name" name="last_name" class="form-input"
                        placeholder="Dela Cruz" required autocomplete="family-name"
                        value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>">
@@ -121,14 +122,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="form-group">
-            <label for="middle_name">Middle Name</label>
+            <label for="middle_name">Middle name <span class="optional">(optional)</span></label>
             <input type="text" id="middle_name" name="middle_name" class="form-input"
-                   placeholder="Optional" autocomplete="additional-name"
+                   autocomplete="additional-name"
                    value="<?= htmlspecialchars($_POST['middle_name'] ?? '') ?>">
         </div>
 
         <div class="form-group">
-            <label for="email">Email *</label>
+            <label for="email">Email</label>
             <input type="email" id="email" name="email" class="form-input"
                    placeholder="email@example.com" required autocomplete="email"
                    value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
@@ -136,20 +137,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="form-grid">
             <div class="form-group">
-                <label for="password">Password *</label>
+                <label for="password">Password</label>
                 <input type="password" id="password" name="password" class="form-input"
                        placeholder="Min. 6 characters" required minlength="6" autocomplete="new-password">
             </div>
 
             <div class="form-group">
-                <label for="confirm_password">Confirm Password *</label>
+                <label for="confirm_password">Confirm password</label>
                 <input type="password" id="confirm_password" name="confirm_password" class="form-input"
                        placeholder="Re-enter password" required minlength="6" autocomplete="new-password">
             </div>
         </div>
 
         <div class="form-group">
-            <label for="passkey">Passkey *</label>
+            <label for="passkey">Passkey</label>
             <input type="text" id="passkey" name="passkey" class="form-input"
                    placeholder="e.g. STAFF-1A2B3C" required autocomplete="off" aria-describedby="passkey-hint"
                    value="<?= htmlspecialchars($_POST['passkey'] ?? '') ?>">

@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../../core/bootstrap.php';
 require_once __DIR__ . '/../../includes/excel_parser.php';
 require_once __DIR__ . '/../../includes/qrcode.php';
-requireLogin();
+requireRole(['admin', 'super_admin']);   // importing attendee lists is for admins; staff run check-in
 
 $event_id = (int)($_GET['event_id'] ?? $_POST['event_id'] ?? 0);
 
@@ -207,6 +207,7 @@ if ($step === 'upload' && isset($_SESSION['pending_import']) && $_SESSION['pendi
     .preview-table input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--magenta); }
     .preview-table tr.unchecked td { opacity: .4; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -245,7 +246,7 @@ if ($step === 'upload' && isset($_SESSION['pending_import']) && $_SESSION['pendi
                         <input type="hidden" name="event_id" value="<?= $event_id ?>">
 
                         <div class="form-group">
-                            <label for="default_company">Default company (if not found in file)</label>
+                            <label for="default_company">Default company <span class="optional">(optional)</span></label>
                             <input type="text" name="default_company" id="default_company" class="form-input" value="<?= htmlspecialchars($default_company) ?>" placeholder="e.g. SAP" aria-describedby="default-company-help">
                             <div class="form-help" id="default-company-help">Used when the file has no Company column, or the cell is empty.</div>
                         </div>

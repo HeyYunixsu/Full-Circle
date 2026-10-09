@@ -34,6 +34,7 @@ $page_title = 'Badge Templates';
     .bt-actions { display: flex; gap: 8px; padding: 14px 16px 16px; margin-top: auto; }
     .bt-actions .btn-sm { flex: 1; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -41,9 +42,6 @@ $page_title = 'Badge Templates';
     <main class="main-content">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>"><?= icon($flash['type'] === 'success' ? 'check' : 'alert', ['class' => 'icon-svg icon-sm']) ?> <?= $flash['message'] ?></div>
-        <?php endif; ?>
 
         <div class="page-intro">
             <div>

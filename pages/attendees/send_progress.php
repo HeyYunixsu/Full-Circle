@@ -46,6 +46,7 @@ $page_title = 'Sending Emails';
         #btnBack { display: none; }
         #btnBack.show { display: inline-flex; }
     </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">

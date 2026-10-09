@@ -110,4 +110,20 @@
             delete f.dataset.confirmed;
         });
     }, true);
+
+    // One send per POST form: a double-click or Enter-then-click would otherwise save twice (e.g. two
+    // identical events). Bubble phase, so it runs after the confirm step and skips forms that JS handles.
+    // The button is not disabled, because some forms need the clicked button's name/value.
+    document.addEventListener('submit', function (e) {
+        var f = e.target;
+        if (e.defaultPrevented || (f.getAttribute('method') || '').toLowerCase() !== 'post') return;
+        if (f.dataset.sending) { e.preventDefault(); return; }
+        f.dataset.sending = '1';
+        var b = e.submitter;
+        if (b) b.setAttribute('aria-busy', 'true');
+        setTimeout(function () { delete f.dataset.sending; if (b) b.removeAttribute('aria-busy'); }, 8000);   // downloads keep the page open
+    });
+    window.addEventListener('pageshow', function (e) {   // Back button restores the page as it was: allow sending again
+        if (e.persisted) document.querySelectorAll('form[data-sending]').forEach(function (f) { delete f.dataset.sending; });
+    });
 })();

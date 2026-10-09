@@ -1,0 +1,79 @@
+/* Phone layout (screens 768px wide or narrower).
+   Loaded after each page's own styles with media="(max-width: 768px)", so laptops and desktops never use this file.
+   Rule (HANDOFF.md): phone fixes go here; do not change desktop rules in style.css or page <style> blocks for a phone problem.
+   Page-specific rules are scoped by a class on <body> (e.g. .page-attendees) so they cannot affect other pages. */
+
+/* ---------- Site-wide (moved from style.css) ---------- */
+@media (max-width: 768px) {
+    .sidebar { width: 70px; padding: 0 8px 16px; }
+    .sidebar-logo { justify-content: center; padding: 0; }
+    .sidebar-logo-name { display: none; }
+    .sidebar-link span:not(.icon) { display: none; }
+    .sidebar-link { justify-content: center; padding: 12px; }
+    .sidebar-link.active::before { left: -8px; }
+    .main-content { margin-left: 70px; padding: 18px 14px; }
+    .page-header { margin: -18px -14px 18px; padding: 0 14px; height: 56px; }
+    .page-title { font-size: 19px; }
+    .user-text { display: none; }
+    .user-info { padding: 3px 8px 3px 3px; min-width: 0; height: 42px; }
+    .user-avatar { width: 34px; height: 34px; }
+    .auth-card { padding: 30px 20px; }
+    .event-tabs { overflow-x: auto; }
+}
+
+@media (max-width: 768px) {
+    .toolbar form { width: 100%; }
+    .toolbar select, .toolbar input[type=text], .toolbar input[type=email], .toolbar input[type=password] { flex: 1 1 140px; }
+    .toolbar .spacer { display: none; }
+    .panel { padding: 16px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-value { font-size: 26px; }
+    .modal-actions { flex-direction: column; }
+    .modal { padding: 20px; }
+    .steps { flex-direction: column; }
+    .page-intro { align-items: flex-start; }
+    .hero { padding: 18px; }
+    .form-actions { flex-direction: column-reverse; }
+    .form-actions .btn, .form-actions .btn-sm { width: 100%; }
+}
+
+@media (max-width: 768px) { .topbar-search { display: none; } .topbar-add span { display: none; } .topbar-add { width: 36px; height: 36px; padding: 0; } }
+
+@media (max-width: 768px) { .dialog .modal-actions { flex-direction: column-reverse; } .dialog .modal-actions .btn { width: 100%; } }
+
+@media (max-width: 768px) {
+    .sidebar-section { display: none; }
+    .sidebar-cta { justify-content: center; padding: 12px 0; }
+    .sidebar-cta > div { display: none; }
+}
+
+@media (max-width: 768px) { .topbar-back { width: 34px; height: 34px; } }
+
+@media (max-width: 768px) { .flash-stack { top: auto; bottom: 16px; left: 16px; right: 16px; width: auto; } }
+
+/* ---------- pages/attendees/index.php (body.page-attendees) ---------- */
+@media (max-width: 768px) {
+    .page-attendees .es-select, .page-attendees .es-select select { width: 100%; max-width: none; }
+    .page-attendees .es-progress { margin-left: 0; width: 100%; }
+    .page-attendees .es-progress .progress { flex: 1; }
+}
+
+@media (max-width: 768px) { .page-attendees .filter-bar select { flex: 1 1 140px; max-width: none; } .page-attendees .fb-search { flex: 1 1 100%; } .page-attendees .tc-showing { margin-left: 0; }
+}
+
+/* ---------- pages/checkin/scan.php (body.page-scan) ---------- */
+@media (max-width: 560px) { .page-scan .manual-row { flex-direction: column; }
+}
+
+/* ---------- pages/events/view.php (body.page-event-view) ---------- */
+@media (max-width: 600px) {
+    .page-event-view .quick-actions { grid-template-columns: repeat(2, 1fr); }
+    .page-event-view .stats-grid { grid-template-columns: 1fr; }
+    .page-event-view .event-hero { padding: 20px; }
+    .page-event-view .event-hero-meta { flex-direction: column; gap: 8px; }
+}
+
+/* ---------- pages/reports/index.php (body.page-reports) ---------- */
+@media (max-width: 768px) { .page-reports .kpi-six { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

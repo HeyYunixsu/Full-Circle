@@ -63,18 +63,13 @@ $page_title = $status_filter === 'archived' ? 'Archived Events' : 'Events';
     .btn-add { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--wine-mid) !important; color: var(--white) !important; border-radius: var(--radius-full); font-weight: 600; font-size: 14px; border: none; box-shadow: none !important; }
     .btn-add:hover { background: var(--magenta) !important; box-shadow: none !important; filter: none; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <main class="main-content">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>">
-                <?= icon($flash['type'] === 'success' ? 'check' : 'alert', ['class' => 'icon-svg icon-sm']) ?>
-                <?= $flash['message'] ?>
-            </div>
-        <?php endif; ?>
         <div class="events-header">
             <div class="events-tabs">
                 <a href="?status=all" class="events-tab <?= $status_filter === 'all' ? 'active' : '' ?>">All</a>

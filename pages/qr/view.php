@@ -53,6 +53,7 @@ $checked_in = $attendee && $attendee['status'] === 'checked_in';
     .notfound .icon-svg { width: 40px; height: 40px; color: var(--danger); margin-bottom: 8px; }
     .notfound p { color: var(--color-text-muted); font-size: 14px; margin-top: 8px; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="auth-body">
     <?php if (!$attendee): ?>

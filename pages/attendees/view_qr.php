@@ -35,6 +35,7 @@ $page_title = 'QR Code';
     .back-link { color: var(--purple-mid); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 20px; }
     .back-link .icon-svg { width: 16px; height: 16px; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">

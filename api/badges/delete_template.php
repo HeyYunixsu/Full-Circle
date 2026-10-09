@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../core/bootstrap.php';
-require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../core/bootstrap.php';
 requireRole(['super_admin', 'admin']);
 
 $id = (int)($_GET['id'] ?? 0);

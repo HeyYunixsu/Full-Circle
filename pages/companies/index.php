@@ -76,6 +76,7 @@ $page_title = 'Companies';
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= $page_title ?> &mdash; <?= SITE_NAME ?></title>
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=<?= ASSET_VER ?>">
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -83,9 +84,6 @@ $page_title = 'Companies';
     <main class="main-content">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>"><?= $flash['message'] ?></div>
-        <?php endif; ?>
 
         <?php if (!$event): ?>
             <div class="empty-note">No events yet. Create an event first.</div>

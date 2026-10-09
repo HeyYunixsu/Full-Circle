@@ -58,11 +58,11 @@ $page_title = 'Reports';
     .kpi-six .sub { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .kpi-six .stat-bar { display: block; margin-top: 8px; }
     @media (max-width: 1280px) { .kpi-six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 768px) { .kpi-six { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media print { .print-head { display: block; margin-bottom: 16px; } }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body page-reports">
 <div class="dashboard-container">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <main class="main-content">

@@ -17,7 +17,16 @@ if (!$event) {
     redirect(BASE_URL . '/pages/events/index.php', 'Event not found.', 'error');
 }
 
-$page_title = 'Scan QR Code';
+// Opened from Sessions > Scan: every scan is also recorded for that session
+require_once __DIR__ . '/../../modules/SessionManager.php';
+$session = null;
+if ($sid = (int)($_GET['session_id'] ?? 0)) {
+    $session = (new SessionManager($conn))->find($sid);
+    if (!$session || (int)$session['event_id'] !== $event_id) $session = null;
+}
+
+$page_title = $session ? 'Scan for Session' : 'Scan QR Code';
+$closed = checkinClosedReason($event);
 
 $icon_check = icon('check-circle', ['class' => 'icon-svg icon-sm']);
 $icon_xcircle = icon('x-circle', ['class' => 'icon-svg icon-sm']);
@@ -34,7 +43,7 @@ $icon_plus = icon('plus', ['class' => 'icon-svg icon-sm']);
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= $page_title ?> &mdash; <?= SITE_NAME ?></title>
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=<?= ASSET_VER ?>">
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<?php if (!$closed): ?><script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script><?php endif; ?>
 <style>
     .scanner-card { padding: 0; overflow: hidden; }
     /* Fits one screen: the camera box (4:3) narrows on short screens so the manual entry stays visible.
@@ -74,20 +83,32 @@ $icon_plus = icon('plus', ['class' => 'icon-svg icon-sm']);
     .camera-fallback { padding: 40px 20px; text-align: center; color: rgba(255, 255, 255, .85); display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--wine-darkest); }
     .camera-fallback .icon-svg { width: 36px; height: 36px; opacity: .7; margin-bottom: 6px; }
     .camera-fallback small { opacity: .7; }
-    @media (max-width: 560px) { .manual-row { flex-direction: column; } }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body page-scan">
 <div class="dashboard-container">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <main class="main-content">
-        <?php $back_url = BASE_URL . '/pages/checkin/index.php?event_id=' . (int)$event_id; $back_label = 'Back to Check-In'; include __DIR__ . '/../../includes/header.php'; ?>
+        <?php if ($session) { $back_url = BASE_URL . '/pages/sessions/index.php?event_id=' . (int)$event_id; $back_label = 'Back to Sessions'; } else { $back_url = BASE_URL . '/pages/checkin/index.php?event_id=' . (int)$event_id; $back_label = 'Back to Check-In'; } include __DIR__ . '/../../includes/header.php'; ?>
 
 
+        <?php if ($closed): ?>
+        <div class="narrow">
+            <div class="panel">
+                <div class="empty-state">
+                    <?= icon('calendar', ['class' => 'icon-svg']) ?>
+                    <strong>Check-in is closed</strong>
+                    <p><?= htmlspecialchars($closed) ?></p>
+                    <a class="btn-sm light" href="<?= BASE_URL ?>/pages/events/view.php?id=<?= (int)$event_id ?>">Go to event page</a>
+                </div>
+            </div>
+        </div>
+        <?php else: ?>
         <div class="scan-wrap">
             <div class="panel scanner-card">
                 <div class="scan-stage">
-                    <span class="scan-event"><?= icon('calendar', ['class' => 'icon-svg icon-sm']) ?> <?= htmlspecialchars($event['event_name']) ?></span>
+                    <span class="scan-event"><?= icon('calendar', ['class' => 'icon-svg icon-sm']) ?> <?= htmlspecialchars($event['event_name']) ?><?= $session ? ' &middot; ' . htmlspecialchars($session['session_name']) : '' ?></span>
                     <div id="qr-reader"></div>
                     <div class="result-area" id="result" aria-live="polite"></div>
                 </div>
@@ -101,11 +122,14 @@ $icon_plus = icon('plus', ['class' => 'icon-svg icon-sm']);
                 </div>
             </div>
         </div>
+        <?php endif; ?>
     </main>
 </div>
 
+<?php if (!$closed): ?>
 <script>
 const EVENT_ID = <?= $event_id ?>;
+const SESSION_ID = <?= $session ? (int)$session['id'] : 0 ?>;
 const API_URL = '<?= BASE_URL ?>/api/checkin/scan.php';
 let isProcessing = false;
 let html5QrCode;
@@ -143,6 +167,7 @@ async function processScan(code) {
         const formData = new FormData();
         formData.append('event_id', EVENT_ID);
         formData.append('code', code.trim());
+        if (SESSION_ID) formData.append('session_id', SESSION_ID);
 
         const res = await fetch(API_URL, {
             method: 'POST',
@@ -179,11 +204,11 @@ async function processScan(code) {
         } else {
             showResult(`
                 <div class="result-card result-bad">
-                    <div class="result-head">${ICON_ERROR} Not found</div>
+                    <div class="result-head">${ICON_ERROR} ${data.closed ? 'Check-in closed' : 'Not found'}</div>
                     <p>${escapeHtml(data.message)}</p>
                     <div class="action-buttons">
                         <button class="btn-sm light" onclick="resetScanner()">Try Again</button>
-                        ${WALKIN_URL ? `<a class="btn-sm" href="${WALKIN_URL}">${ICON_PLUS} Register Walk-in</a>` : ''}
+                        ${WALKIN_URL && !data.closed ? `<a class="btn-sm" href="${WALKIN_URL}">${ICON_PLUS} Register Walk-in</a>` : ''}
                     </div>
                 </div>
             `);
@@ -236,5 +261,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
+<?php endif; ?>
 </body>
 </html>

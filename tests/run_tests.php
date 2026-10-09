@@ -102,9 +102,14 @@ $conn->query("INSERT INTO companies (event_id, company_name, max_attendees) VALU
 $conn->query("INSERT INTO sessions (event_id, session_name) VALUES ($eA, 'ZZTEST Session')");
 $sess = $conn->insert_id;
 
+$conn->query("INSERT INTO events (event_name, event_date, event_time, location, status)
+              VALUES ('ZZTEST Event C', CURDATE(), '09:00', 'ZZTEST Hall', 'upcoming')");
+$eC = $conn->insert_id;
+
 $a1 = addAttendee($eA, 'ZZTEST Juan Cruz', 'zztest.a1@example.test');
 $a2 = addAttendee($eA, 'ZZTEST Maria Santos', 'zztest.a2@example.test', 'checked_in');
 $b1 = addAttendee($eB, 'ZZTEST Pedro Reyes', 'zztest.b1@example.test');
+$c1 = addAttendee($eC, 'ZZTEST Lea Ramos', 'zztest.c1@example.test');
 
 try {
 // ------------------------------------------------------------------ UNIT
@@ -159,6 +164,15 @@ t('U15', 'feedbackLink: BASE_URL + naka-encode na QR value', fn() =>
 t('U16', 'capitalizeWords: "juan dela cruz" -> "Juan Dela Cruz"; "SAP" at "IT" hindi binabago', fn() =>
     capitalizeWords(' juan dela cruz ') === 'Juan Dela Cruz' && capitalizeWords('SAP philippines') === 'SAP Philippines'
     && capitalizeWords('IT') === 'IT' && capitalizeWords('mary-ann') === 'Mary-Ann');
+t('U17', 'checkinClosedReason: bukas kapag ongoing o event day; sarado bago ang araw at kapag tapos na', function () {
+    $d = fn($days) => date('Y-m-d', strtotime("$days days"));
+    return checkinClosedReason(['status' => 'ongoing',   'event_date' => $d(+5)]) === null
+        && checkinClosedReason(['status' => 'upcoming',  'event_date' => $d(0)]) === null
+        && str_starts_with((string)checkinClosedReason(['status' => 'upcoming', 'event_date' => $d(+3)]), 'Check-in opens on')
+        && str_starts_with((string)checkinClosedReason(['status' => 'upcoming', 'event_date' => $d(-2)]), 'The event date has passed')
+        && str_contains((string)checkinClosedReason(['status' => 'completed', 'event_date' => $d(0)]), 'closed')
+        && str_contains((string)checkinClosedReason(['status' => 'archived',  'event_date' => $d(0)]), 'closed');
+});
 
 // ------------------------------------------------------------------ INTEGRATION (PHP + database)
 echo "\n== INTEGRATION TESTS ==\n";
@@ -176,6 +190,11 @@ t('I03', 'Parehong email pwede sa ibang event', function () use ($eB) {
 t('I04', 'getEventStats: total 2, checked in 1, not yet 1, 50%', function () use ($eA) {
     $s = getEventStats($eA);
     return $s['total'] === 2 && $s['checked_in'] === 1 && $s['not_yet'] === 1 && $s['percentage'] == 50;
+});
+t('I10', 'getEventStats([A, B]): pinagsamang bilang ng dalawang event', function () use ($eA, $eB) {
+    $both = getEventStats([$eA, $eB]);
+    $a = getEventStats($eA); $b = getEventStats($eB);
+    return $both['total'] === $a['total'] + $b['total'] && $both['checked_in'] === $a['checked_in'] + $b['checked_in'];
 });
 t('I05', 'companyCapacity: ZZTEST Co = 2 registered / limit 2, badge "Full"', function () use ($eA) {
     $row = array_values(array_filter(companyCapacity($eA), fn($r) => $r['name'] === 'ZZTEST Co'))[0];
@@ -222,9 +241,9 @@ t('S02', 'Login na mali ang password -> "Invalid email or password."', fn() =>
     str_contains(http('/pages/auth/login.php', ['email' => 'zztest.staff@example.test', 'password' => 'wrong'])['body'], 'Invalid email or password.'));
 t('S03', 'Login na tama -> pasok sa dashboard', fn() =>
     http('/pages/dashboard/index.php', null, $staff)['code'] === 200);
-t('S04', 'Staff: Reports, Companies, Feedback, Accounts, Create Event -> bawal (redirect)', function () use ($staff) {
+t('S04', 'Staff: Reports, Companies, Feedback, Accounts, Create Event, Upload -> bawal (redirect)', function () use ($staff) {
     foreach (['/pages/reports/index.php', '/pages/companies/index.php', '/pages/feedback/index.php',
-              '/pages/accounts/index.php', '/pages/events/create.php'] as $p) {
+              '/pages/accounts/index.php', '/pages/events/create.php', '/pages/attendees/upload.php?event_id=1'] as $p) {
         $r = http($p, null, $staff);
         if ($r['code'] !== 302 || !str_contains($r['to'], '/pages/dashboard/')) return false;
     }
@@ -274,6 +293,58 @@ t('S15', 'Feedback form: rating 0 -> error; 5 -> saved; ulit (4) -> update, hind
     http($url, ['rating' => 4, 'comment' => 'ZZTEST']);
     $rows = one("SELECT CONCAT(COUNT(*), ':', MAX(rating)) FROM feedback WHERE attendee_id = {$a1['id']} AND session_id IS NULL");
     return $bad && $rows === '1:4';
+});
+t('S16', 'Check-in rule: event bukas pa (upcoming) -> sarado, hindi na-check in', function () use ($scan, $eB, $b1, $staff) {
+    $r = $scan($eB, $b1['qr'], true, $staff);
+    return $r['success'] === false && !empty($r['closed']) && str_starts_with($r['message'], 'Check-in opens on')
+        && one("SELECT status FROM attendees WHERE id = {$b1['id']}") === 'not_yet';
+});
+t('S17', 'Check-in rule: event day (upcoming) -> bukas; unang check-in ginagawang Ongoing ang event', function () use ($scan, $eC, $c1, $staff) {
+    $r = $scan($eC, $c1['qr'], true, $staff);
+    return $r['success'] && one("SELECT status FROM events WHERE id = $eC") === 'ongoing';
+});
+t('S18', 'Staff hindi makapagpalit ng event status (admin lang)', function () use ($eB, $staff) {
+    $r = http('/api/events/update_status.php?id=' . $eB . '&status=completed', null, $staff);
+    return $r['code'] === 302 && str_contains($r['to'], '/pages/dashboard/') && one("SELECT status FROM events WHERE id = $eB") === 'upcoming';
+});
+t('S19', 'Session scan: naka-check in na sa event -> nare-record sa session; ulit -> "Already recorded"', function () use ($eA, $a1, $sess, $staff) {
+    $post = fn() => json_decode(http('/api/checkin/scan.php', ['event_id' => $eA, 'code' => $a1['qr'], 'session_id' => $sess], $staff)['body'], true);
+    $first = $post(); $second = $post();
+    return $first['success'] && $first['already_checked_in'] === false && str_starts_with($first['message'], 'Recorded for')
+        && $second['success'] && $second['already_checked_in'] === true
+        && one("SELECT COUNT(*) FROM session_attendance WHERE session_id = $sess AND attendee_id = {$a1['id']}") == 1;
+});
+t('S20', 'Session scan: session ng ibang event -> tinatanggihan', function () use ($eB, $b1, $sess, $staff) {
+    global $conn;
+    $conn->query("UPDATE events SET status = 'ongoing' WHERE id = $eB");   // open check-in so only the session check is tested
+    $r = json_decode(http('/api/checkin/scan.php', ['event_id' => $eB, 'code' => $b1['qr'], 'session_id' => $sess], $staff)['body'], true);
+    $conn->query("UPDATE events SET status = 'upcoming' WHERE id = $eB");
+    return $r['success'] === false && str_contains($r['message'], 'does not belong')
+        && one("SELECT status FROM attendees WHERE id = {$b1['id']}") === 'not_yet';
+});
+t('S21', 'Dashboard: kapag 2+ events ang live, kabuuan ng lahat ang nasa tiles at may "Live now" label', function () use ($staff) {
+    $ids = array_map('intval', array_column(overviewEvents()[0], 'id'));
+    $want = getEventStats($ids)['total'];
+    $html = http('/pages/dashboard/index.php', null, $staff)['body'];
+    return count($ids) >= 1 && str_contains($html, 'Live now') && str_contains($html, 'Registered <em>' . $want . '</em>');
+});
+t('S22', 'Open check-in: 2+ live events -> "Which event" page na may link sa bawat isa', function () use ($staff) {
+    $live = (int)one("SELECT COUNT(*) FROM events WHERE status = 'ongoing'");
+    $r = http('/pages/checkin/choose.php', null, $staff);
+    return $live < 2 ? $r['code'] === 302 : ($r['code'] === 200 && substr_count($r['body'], 'Open check-in</a>') === $live);
+});
+t('S23', 'Create Event na naipadala nang 2 beses (double-click) -> isang event lang', function () use ($admin) {
+    $form = ['event_name' => 'ZZTEST Double Click', 'event_date' => date('Y-m-d', strtotime('+30 days')), 'event_time' => '09:00', 'location' => 'ZZTEST Hall'];
+    $first = http('/pages/events/create.php', $form, $admin);
+    $second = http('/pages/events/create.php', $form, $admin);
+    return $first['code'] === 302 && $second['to'] === $first['to']
+        && one("SELECT COUNT(*) FROM events WHERE event_name = 'ZZTEST Double Click'") == 1;
+});
+t('S24', 'Dashboard switcher: ?ov=<event> -> bilang ng event na iyon lang; walang ?ov -> kabuuan', function () use ($staff, $eA) {
+    $one = getEventStats($eA)['total'];
+    $html = http('/pages/dashboard/index.php?ov=' . $eA, null, $staff)['body'];
+    $live = count(overviewEvents()[0]);
+    return $live < 2 || (str_contains($html, 'Registered <em>' . $one . '</em>') && str_contains($html, 'class="ov-switch"'));
 });
 
 foreach ([$staff, $admin] as $jar) @unlink($jar);

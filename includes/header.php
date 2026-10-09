@@ -66,3 +66,29 @@ document.addEventListener('blur', e => {
 document.addEventListener('click', e => { const m = document.getElementById('userMenu'); if (m && m.open && !m.contains(e.target)) m.open = false; });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = document.getElementById('userMenu'); if (m) m.open = false; } });
 </script>
+<?php
+// Result of the last action (set by redirect() in core/flash.php), shown as a pop-up on whichever page loads next.
+// Pages that already read it keep it in $flash; otherwise read it here.
+$flash = $flash ?? getFlashMessage();
+if ($flash):
+    $ft_type = in_array($flash['type'], ['success', 'error', 'warning', 'info'], true) ? $flash['type'] : 'success';
+    $ft_icon = ['success' => 'check-circle', 'error' => 'x-circle', 'warning' => 'alert', 'info' => 'info'][$ft_type];
+    $ft_life = ['success' => 5, 'info' => 6, 'warning' => 8, 'error' => 9][$ft_type];   // seconds; hover pauses it
+?>
+<div class="flash-stack">
+    <div class="flash-toast flash-<?= $ft_type ?>" role="<?= in_array($ft_type, ['error', 'warning']) ? 'alert' : 'status' ?>" style="--ft-life: <?= $ft_life ?>s">
+        <span class="ft-icon"><?= icon($ft_icon, ['class' => 'icon-svg']) ?></span>
+        <div class="ft-body"><?= $flash['message'] ?></div>
+        <button type="button" class="ft-close" aria-label="Dismiss notification"><?= icon('x', ['class' => 'icon-svg icon-sm']) ?></button>
+        <span class="ft-timer" aria-hidden="true"></span>
+    </div>
+</div>
+<script>
+// Hides when the timer bar runs out (the bar pauses while hovered) or when the close button is clicked
+document.querySelectorAll('.flash-toast').forEach(t => {
+    const hide = () => { t.classList.add('hide'); setTimeout(() => t.parentElement?.remove(), 250); };
+    t.querySelector('.ft-close').addEventListener('click', hide);
+    t.querySelector('.ft-timer').addEventListener('animationend', hide);
+});
+</script>
+<?php endif; ?>

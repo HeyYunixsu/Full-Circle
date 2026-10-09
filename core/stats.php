@@ -8,6 +8,7 @@ function getActiveEvent() {
     return $result->num_rows > 0 ? $result->fetch_assoc() : null;
 }
 
+// One event id, or a list of ids for combined totals (dashboard overview across live events).
 function getEventStats($event_id) {
     global $conn;
 
@@ -24,12 +25,9 @@ function getEventStats($event_id) {
                 SUM(CASE WHEN status = 'checked_in' THEN 1 ELSE 0 END) as checked_in,
                 SUM(CASE WHEN status = 'not_yet' THEN 1 ELSE 0 END) as not_yet,
                 SUM(CASE WHEN registration_type = 'walk-in' THEN 1 ELSE 0 END) as walk_ins
-            FROM attendees WHERE event_id = ?";
+            FROM attendees WHERE event_id IN (" . (implode(',', array_map('intval', (array)$event_id)) ?: '0') . ")";
 
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $event_id);
-    $stmt->execute();
-    $result = $stmt->get_result()->fetch_assoc();
+    $result = $conn->query($sql)->fetch_assoc();
 
     if ($result) {
         $stats['total'] = (int)$result['total'];
@@ -83,3 +81,44 @@ function capacityBadge($count, $cap) {
     return '';
 }
 
+function findEvent($event_id) {
+    global $conn;
+    $s = $conn->prepare("SELECT * FROM events WHERE id = ?");
+    $s->bind_param("i", $event_id);
+    $s->execute();
+    return $s->get_result()->fetch_assoc();
+}
+
+// Check-in rule: open while the event is Ongoing (any date, for multi-day events or a dry run) or on the
+// event day itself; closed before that day and once the event is completed or archived.
+// Returns null when check-in is open, otherwise the reason to show staff.
+function checkinClosedReason($event) {
+    if ($event['status'] === 'ongoing') return null;
+    if (in_array($event['status'], ['completed', 'archived'], true)) return 'This event has ended, so check-in is closed.';
+    $today = date('Y-m-d');
+    if ($event['event_date'] === $today) return null;
+    if ($event['event_date'] > $today) {
+        return 'Check-in opens on ' . date('F j, Y', strtotime($event['event_date'])) . '. To open it early, an admin can click "Mark as Ongoing" on the event page.';
+    }
+    return 'The event date has passed. To reopen check-in, an admin can click "Mark as Ongoing" on the event page.';
+}
+
+// On the event day the first check-in marks an Upcoming event Ongoing, so dashboards and staff permissions follow.
+function markOngoingIfEventDay($event) {
+    global $conn;
+    if ($event['status'] !== 'upcoming' || $event['event_date'] !== date('Y-m-d')) return;
+    $s = $conn->prepare("UPDATE events SET status = 'ongoing' WHERE id = ? AND status = 'upcoming'");
+    $s->bind_param("i", $event['id']);
+    $s->execute();
+    if ($s->affected_rows) logActivity('Event Status Updated', "Event '{$event['event_name']}' marked Ongoing by its first check-in");
+}
+
+// What the dashboard overview counts: every Ongoing event, or the next Upcoming one when nothing is live.
+// Returns [events, kind] with kind 'live', 'next' or '' (no events).
+function overviewEvents() {
+    global $conn;
+    $live = $conn->query("SELECT * FROM events WHERE status = 'ongoing' ORDER BY event_date, id")->fetch_all(MYSQLI_ASSOC);
+    if ($live) return [$live, 'live'];
+    $next = getActiveEvent();
+    return $next ? [[$next], 'next'] : [[], ''];
+}

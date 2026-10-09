@@ -102,6 +102,7 @@ function stars($name, $current, $required = false) {
     .fb-sessions { border-top: 1px solid var(--color-border); padding-top: 18px; }
     .fb-done { text-align: center; padding: 10px 0 0; }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="auth-body">
 <div class="auth-card">

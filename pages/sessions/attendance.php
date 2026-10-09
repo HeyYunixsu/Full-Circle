@@ -19,6 +19,7 @@ $page_title = 'Session Attendance';
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= htmlspecialchars($session['session_name']) ?> &mdash; Attendance</title>
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=<?= ASSET_VER ?>">
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">

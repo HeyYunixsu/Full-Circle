@@ -6,9 +6,9 @@ Apat na level ng testing:
 
 | Level | Ilan | Paano | Resulta |
 |---|---|---|---|
-| Unit | 16 | Automated, `tests/run_tests.php` | 16/16 Pass (2026-10-07) |
+| Unit | 17 | Automated, `tests/run_tests.php` | 17/17 Pass (2026-10-07) |
 | Integration | 9 | Automated, `tests/run_tests.php` | 9/9 Pass (2026-10-06) |
-| System (automated) | 15 | Automated sa web server (HTTP), `tests/run_tests.php` | 15/15 Pass (2026-10-06) |
+| System (automated) | 20 | Automated sa web server (HTTP), `tests/run_tests.php` | 20/20 Pass (2026-10-07) |
 | System (manual) | 16 | Manual sa browser at phone | Punan habang tini-test |
 | UAT | 10 | Mga user ng Full Circle Events Asia | Punan sa UAT session |
 
@@ -23,7 +23,7 @@ Saan naka-link ang bawat test sa objectives: `objectives-traceability.md`.
    C:\xampp\php\php.exe C:\xampp\htdocs\Full_Event\tests\run_tests.php
    ```
 
-3. Dapat ang huling linya ay `40/40 passed. Test data removed.` Kapag may `FAIL`, nakasulat sa tabi kung bakit.
+3. Dapat ang huling linya ay `46/46 passed. Test data removed.` Kapag may `FAIL`, nakasulat sa tabi kung bakit.
 
 Gumagawa ang script ng sariling test data (ZZTEST users, events at attendees, `@example.test` emails) at binubura lahat pagkatapos, kahit may pumalya. Walang email o SMS na pinapadala, kaya ligtas itong patakbuhin kahit may totoong data ang database.
 
@@ -50,6 +50,7 @@ Isang function lang ang tine-test bawat isa, walang database.
 | U13 | `parseAttendeesCSV()` | CSV na `;` ang separator, may header, may duplicate email | Nade-detect ang `;`, 2 rows (tinanggal ang duplicate), tamang company | gaya ng expected | Pass |
 | U14 | `parseAttendeesCSV()` | CSV na walang email column | `success = false` at may error message | gaya ng expected | Pass |
 | U15 | `feedbackLink()` | QR value `FC-A B` | `BASE_URL/pages/feedback/form.php?c=FC-A+B` | gaya ng expected | Pass |
+| U17 | `checkinClosedReason()` | ongoing (+5 araw); upcoming ngayon; upcoming +3 araw; upcoming -2 araw; completed; archived | bukas; bukas; "Check-in opens on …"; "The event date has passed …"; sarado; sarado | gaya ng expected | Pass |
 | U16 | `capitalizeWords()` | ` juan dela cruz `; `SAP philippines`; `IT`; `mary-ann` | `Juan Dela Cruz`; `SAP Philippines`; `IT`; `Mary-Ann` | gaya ng expected | Pass |
 
 ## 2. Integration tests
@@ -77,7 +78,7 @@ Totoong HTTP requests sa Apache, gaya ng browser. Gumagamit ng ZZTEST Staff at Z
 | S01 | Protected page | Buksan ang Dashboard nang hindi naka-login | Redirect sa Login page | redirect sa login | Pass |
 | S02 | Maling login | Login na tama ang email, mali ang password | "Invalid email or password." | gaya ng expected | Pass |
 | S03 | Tamang login | Login bilang Staff, buksan ang Dashboard | Dashboard bukas (HTTP 200) | 200 | Pass |
-| S04 | Role restriction | Bilang Staff: Reports, Companies, Feedback, Accounts, Create Event | Lahat nire-redirect sa Dashboard | lahat redirect | Pass |
+| S04 | Role restriction | Bilang Staff: Reports, Companies, Feedback, Accounts, Create Event, Upload Attendees | Lahat nire-redirect sa Dashboard | lahat redirect | Pass |
 | S05 | Admin access | Bilang Admin: Reports at Companies | Bukas (HTTP 200) | 200 | Pass |
 | S06 | QR scan, preview | I-scan ang QR ng attendee na hindi pa naka-check in | Lumabas ang details para i-verify; hindi pa naka-check in sa database | gaya ng expected | Pass |
 | S07 | QR scan, confirm | I-confirm ang check-in | "Checked in successfully!"; status `checked_in` at may oras | gaya ng expected | Pass |
@@ -88,6 +89,11 @@ Totoong HTTP requests sa Apache, gaya ng browser. Gumagamit ng ZZTEST Staff at Z
 | S12 | API security | Check-in request nang hindi naka-login | Redirect sa login; walang nabago sa database | gaya ng expected | Pass |
 | S13 | Cron security | Buksan ang `cron/notify.php` sa browser | HTTP 403 "CLI only" (Task Scheduler lang ang pwedeng magpatakbo) | 403 | Pass |
 | S14 | Attendee QR page | Buksan ang QR link ng attendee; tapos maling code | Lumabas ang pangalan at QR; maling code → "QR Not Found" | gaya ng expected | Pass |
+| S16 | Check-in bago ang event day | I-scan ang QR sa event na bukas pa (upcoming) | Sarado: "Check-in opens on …"; hindi na-check in | gaya ng expected | Pass |
+| S17 | Check-in sa event day | I-scan sa event na ngayon ang petsa (upcoming) | Na-check in; naging Ongoing ang event | gaya ng expected | Pass |
+| S18 | Event status, admin lang | Bilang Staff: palitan ang status ng event | Redirect sa Dashboard; hindi nagbago ang status | gaya ng expected | Pass |
+| S19 | Session scan | I-scan ang attendee na naka-check in na, para sa isang session; tapos ulit | "Recorded for …"; pangalawa "Already recorded for …"; isang record lang | gaya ng expected | Pass |
+| S20 | Session ng ibang event | I-scan gamit ang session na hindi sa event na ito | Tinanggihan; walang na-check in | gaya ng expected | Pass |
 | S15 | Feedback form | Mag-submit ng rating 0, tapos 5, tapos 4 | 0 → error "rating from 1 to 5"; 5 → saved; 4 → na-update, hindi doble | gaya ng expected | Pass |
 
 ## 4. System tests (manual)

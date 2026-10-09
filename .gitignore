@@ -13,18 +13,5 @@ assets/uploads/*
 Thumbs.db
 Screenshot*.png
 
-# Unused files waiting to be deleted (see HANDOFF open item 2); not part of the app
-test.php
-assets/js/buttons.js
-api/archive_event.php
-api/checkin.php
-api/end_event.php
-api/export_attendees.php
-api/poll_checkins.php
-api/process_email_queue.php
-api/sample_csv.php
-api/scan_checkin.php
-api/send_emails.php
-api/send_sms.php
-api/update_attendee.php
-api/update_event_status.php
+# Old files no page uses any more (see _unused/README.md)
+_unused/

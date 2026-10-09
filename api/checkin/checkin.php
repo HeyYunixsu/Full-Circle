@@ -18,6 +18,12 @@ if (!$event_id || !$code) {
     echo json_encode(['success' => false, 'message' => 'Missing event_id or code']);
     exit;
 }
+$event = findEvent($event_id);
+$closed = $event ? checkinClosedReason($event) : 'Event not found.';
+if ($closed) {
+    echo json_encode(['success' => false, 'closed' => true, 'message' => $closed]);
+    exit;
+}
 $stmt = $conn->prepare("
     SELECT a.*, e.event_name
     FROM attendees a
@@ -125,6 +131,7 @@ if ($conn->affected_rows === 0) {
     exit;
 }
 logActivity('Check-in', 'Checked in: ' . $attendee['full_name']);
+markOngoingIfEventDay($event);
 if (!empty($edits)) {
     logActivity('Attendee Edited at Check-in',
         "Attendee #{$attendee['id']} ({$attendee['attendee_code']}): " . implode(' · ', $edits)

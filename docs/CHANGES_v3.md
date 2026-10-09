@@ -12,8 +12,8 @@ na binigay mo. Palitan sa Google Account -> App Passwords, revoke luma.
 
 1. Backup ng database mo
 2. Palitan ang buong Full_Event folder sa htdocs
-3. phpMyAdmin -> SQL tab -> paste ang database/migration_v3.sql
-   (o buksan http://localhost/Full_Event/database/migrate_v3.php)
+3. phpMyAdmin -> SQL tab -> paste ang database/migrations/migration_v3.sql
+   (o buksan http://localhost/Full_Event/database/migrations/migrate_v3.php)
 4. Optional: SEMAPHORE_API_KEY sa config.php + SMS_ENABLED = true
 
 Kung hindi mo i-on ang SMS, gumagana pa rin lahat.
@@ -41,7 +41,7 @@ cron/                para sa automated reminders (Obj 3) - bakante pa
 docs/                para sa capstone paper - bakante pa
 assets/logos/        para sa company logos
 
-includes/functions.php ay shim na lang -> core/bootstrap.php
+includes/functions.php ay shim na lang -> core/bootstrap.php (now in _unused/; everything requires core/bootstrap.php)
 Gumagana pa rin ang lumang code na nag-require nito.
 
 ## MGA NA-TEST (totoong runtime, hindi lint lang)

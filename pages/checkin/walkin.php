@@ -24,24 +24,19 @@ if ($event['status'] === 'archived') {
              'This event is archived. Walk-in registration is closed.', 'error');
 }
 
-$companies = [];
-$c_result = $conn->query("SELECT DISTINCT company_name FROM companies WHERE event_id = $event_id ORDER BY company_name");
-while ($r = $c_result->fetch_assoc()) $companies[] = $r['company_name'];
+// Same list as the event page: companies set up for the event plus those in the attendee list, most registered first
+$companies = array_column(companyCapacity($event_id), 'name');
 
 $error = '';
+$closed = checkinClosedReason($event);   // walk-ins are checked in on the spot, so the check-in rule applies
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$closed) {
     $full_name     = capitalizeWords($_POST['full_name'] ?? '');
     $email         = sanitize($_POST['email'] ?? '');
-    $company       = capitalizeWords($_POST['company'] ?? '');
-    $other_company = capitalizeWords($_POST['other_company'] ?? '');
-    $designation   = capitalizeWords($_POST['designation'] ?? '');
+    $company       = capitalizeWords($_POST['company'] ?? '');       // pick from the list or type a new one
+    $designation   = capitalizeWords($_POST['designation'] ?? '') ?: null;   // optional
     $mobile_raw    = sanitize($_POST['mobile_number'] ?? '');
     $send_sms      = isset($_POST['send_sms']);
-
-    if ($company === 'Others' && !empty($other_company)) {
-        $company = $other_company;
-    }
 
     $mobile = '';
     if ($mobile_raw !== '') {
@@ -49,8 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($n) $mobile = '0' . substr($n, 2);
     }
 
-    if (empty($full_name) || empty($email) || empty($company) || empty($designation) || empty($mobile_raw)) {
-        $error = 'Please fill in all fields.';
+    $duplicate = false;
+    if (empty($full_name) || empty($email) || empty($company) || empty($mobile_raw)) {
+        $error = 'Please fill in the name, email, mobile number and company.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Invalid email address.';
     } elseif ($mobile === '') {
@@ -61,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $check->execute();
         if ($check->get_result()->num_rows > 0) {
             $error = 'This email is already registered for this event.';
+            $duplicate = true;
         } else {
             $attendee_code = generateAttendeeCode($event_id);
             $qr_data = generateQRData($attendee_code);
@@ -76,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($stmt->execute()) {
                 $new_id = $conn->insert_id;
+                markOngoingIfEventDay($event);
 
                 $cc = $conn->prepare("SELECT id FROM companies WHERE event_id=? AND company_name=?");
                 $cc->bind_param("is", $event_id, $company);
@@ -115,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                logActivity('Walk-in Registered', "{$full_name} ({$company} — {$designation})");
+                logActivity('Walk-in Registered', "{$full_name} (" . implode(' — ', array_filter([$company, $designation])) . ")");
                 redirect(BASE_URL . '/pages/checkin/badge.php?attendee_id=' . $new_id,
                          'Walk-in registered!' . $sms_note);
             } else {
@@ -135,11 +133,14 @@ $page_title = 'Walk-in Registration';
 <title><?= $page_title ?> &mdash; <?= SITE_NAME ?></title>
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=<?= ASSET_VER ?>">
 <style>
-    #other_company_group { display: none; }
-    .walkin-head { margin-bottom: 18px; }
-    .walkin-head h3 { margin-bottom: 2px; }
-    .walkin-head p { font-size: 13px; color: var(--color-text-muted); }
+    .alert a { font-weight: 600; text-decoration: underline; }
+    /* One-tap company buttons under the Company box (most registered first) */
+    .company-picks { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 18px; }
+    .company-pick { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-strong); font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color var(--dur-fast), background var(--dur-fast); }
+    .company-pick:hover { border-color: var(--magenta); }
+    .company-pick[aria-pressed="true"] { background: var(--wine-mid); border-color: var(--wine-mid); color: var(--white); }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
@@ -150,59 +151,70 @@ $page_title = 'Walk-in Registration';
 
         <div class="narrow">
             <div class="panel">
-                <div class="walkin-head">
-                    <h3><span class="panel-title"><?= icon('walk', ['class' => 'icon-svg icon-md']) ?> Walk-in Registration</span></h3>
-                    <p><?= htmlspecialchars($event['event_name']) ?> &middot; the attendee is checked in immediately and gets a badge.</p>
+                <div class="form-head">
+                    <div class="kicker">Registering for</div>
+                    <h3><?= htmlspecialchars($event['event_name']) ?></h3>
+                    <p>They are checked in as soon as you register, and their badge opens next.</p>
                 </div>
 
+                <?php if ($closed): ?>
+                    <div class="empty-state">
+                        <?= icon('calendar', ['class' => 'icon-svg']) ?>
+                        <strong>Check-in is closed</strong>
+                        <p><?= htmlspecialchars($closed) ?></p>
+                        <a class="btn-sm light" href="<?= BASE_URL ?>/pages/events/view.php?id=<?= (int)$event_id ?>">Go to event page</a>
+                    </div>
+                <?php else: ?>
                 <?php if ($error): ?>
-                    <div class="alert alert-error" role="alert"><?= icon('alert', ['class' => 'icon-svg icon-sm']) ?> <?= htmlspecialchars($error) ?></div>
+                    <div class="alert alert-error" role="alert"><?= icon('alert', ['class' => 'icon-svg icon-sm']) ?> <span><?= htmlspecialchars($error) ?>
+                        <?php if (!empty($duplicate)): ?> <a href="<?= BASE_URL ?>/pages/attendees/index.php?event_id=<?= (int)$event_id ?>&search=<?= urlencode($email) ?>">Find them in Attendees</a><?php endif; ?></span></div>
                 <?php endif; ?>
 
-                <form method="POST">
+                <!-- autocomplete off: on a shared check-in laptop the browser would suggest the previous guest's details -->
+                <form method="POST" autocomplete="off">
                     <div class="form-group">
-                        <label for="company">Company Name *</label>
-                        <select name="company" id="company" class="form-input" required onchange="toggleOther(this)">
-                            <option value="">-- Select Company --</option>
-                            <?php foreach ($companies as $c): ?>
-                                <option value="<?= htmlspecialchars($c) ?>" <?= (($_POST['company'] ?? '') === $c) ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
-                            <?php endforeach; ?>
-                            <option value="Others" <?= (($_POST['company'] ?? '') === 'Others') ? 'selected' : '' ?>>Others</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="other_company_group">
-                        <label for="other_company">Other Company Name</label>
-                        <input type="text" name="other_company" id="other_company" class="form-input" placeholder="Type company name" value="<?= htmlspecialchars($_POST['other_company'] ?? '') ?>">
+                        <label for="full_name">Full name</label>
+                        <input type="text" name="full_name" id="full_name" class="form-input" required autofocus value="<?= htmlspecialchars($_POST['full_name'] ?? '') ?>" placeholder="e.g. Juan Dela Cruz">
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="full_name">Full Name *</label>
-                            <input type="text" name="full_name" id="full_name" class="form-input" required value="<?= htmlspecialchars($_POST['full_name'] ?? '') ?>" placeholder="e.g. Juan Dela Cruz">
+                            <label for="email">Email</label>
+                            <input type="email" name="email" id="email" class="form-input" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" placeholder="name@company.com">
                         </div>
                         <div class="form-group">
-                            <label for="designation">Designation *</label>
-                            <input type="text" name="designation" id="designation" class="form-input" required value="<?= htmlspecialchars($_POST['designation'] ?? '') ?>" placeholder="e.g. IT Manager">
+                            <label for="mobile_number">Mobile number</label>
+                            <input type="tel" name="mobile_number" id="mobile_number" class="form-input" required value="<?= htmlspecialchars($_POST['mobile_number'] ?? '') ?>" placeholder="09XX XXX XXXX" inputmode="tel" aria-describedby="mobile-help">
+                            <div class="form-help" id="mobile-help">Philippine number, e.g. 0917 123 4567</div>
                         </div>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="email">Email *</label>
-                            <input type="email" name="email" id="email" class="form-input" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" placeholder="email@example.com">
+                            <label for="company">Company</label>
+                            <input type="text" name="company" id="company" class="form-input" required list="company-list" value="<?= htmlspecialchars($_POST['company'] ?? '') ?>" placeholder="Choose or type a company" aria-describedby="company-help">
+                            <datalist id="company-list">
+                                <?php foreach ($companies as $c): ?><option value="<?= htmlspecialchars($c) ?>"></option><?php endforeach; ?>
+                            </datalist>
+                            <div class="form-help" id="company-help">Tap a company below, or type a new one.</div>
                         </div>
                         <div class="form-group">
-                            <label for="mobile_number">Mobile Number *</label>
-                            <input type="tel" name="mobile_number" id="mobile_number" class="form-input" required value="<?= htmlspecialchars($_POST['mobile_number'] ?? '') ?>" placeholder="09XXXXXXXXX" inputmode="numeric" aria-describedby="mobile-help">
-                            <div class="form-help" id="mobile-help">Globe, Smart, Sun, DITO &mdash; 09XXXXXXXXX or +639XXXXXXXXX</div>
+                            <label for="designation">Designation <span class="optional">(optional)</span></label>
+                            <input type="text" name="designation" id="designation" class="form-input" value="<?= htmlspecialchars($_POST['designation'] ?? '') ?>" placeholder="e.g. IT Manager">
                         </div>
                     </div>
+                    <?php if ($companies): ?>
+                    <div class="company-picks" role="group" aria-label="Companies at this event">
+                        <?php foreach ($companies as $c): ?>
+                            <button type="button" class="company-pick" data-company="<?= htmlspecialchars($c) ?>" aria-pressed="<?= ($_POST['company'] ?? '') === $c ? 'true' : 'false' ?>"><?= htmlspecialchars($c) ?></button>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
 
                     <?php if (smsIsConfigured()): ?>
                     <label class="check">
                         <input type="checkbox" name="send_sms" value="1" <?= isset($_POST['send_sms']) || $_SERVER['REQUEST_METHOD'] !== 'POST' ? 'checked' : '' ?>>
-                        Send confirmation SMS to this number
+                        Text their QR code link to this number<?= smsIsMock() ? ' <span class="optional">(test mode: no real text is sent)</span>' : '' ?>
                     </label>
                     <?php endif; ?>
 
@@ -211,16 +223,21 @@ $page_title = 'Walk-in Registration';
                         <button type="submit" class="btn btn-primary"><?= icon('ticket', ['class' => 'icon-svg icon-sm']) ?> Register &amp; Generate Badge</button>
                     </div>
                 </form>
+                <?php endif; ?>
             </div>
         </div>
     </main>
 </div>
 
 <script>
-function toggleOther(select) {
-    document.getElementById('other_company_group').style.display = select.value === 'Others' ? 'block' : 'none';
-}
-toggleOther(document.querySelector('select[name="company"]'));
+// Company buttons fill the Company box; typing in the box highlights the matching button
+(() => {
+    const input = document.getElementById('company'), picks = document.querySelectorAll('.company-pick');
+    if (!input) return;
+    const sync = () => picks.forEach(b => b.setAttribute('aria-pressed', b.dataset.company.toLowerCase() === input.value.trim().toLowerCase()));
+    picks.forEach(b => b.addEventListener('click', () => { input.value = b.dataset.company; sync(); document.getElementById('designation').focus(); }));
+    input.addEventListener('input', sync);
+})();
 </script>
 </body>
 </html>

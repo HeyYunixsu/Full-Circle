@@ -1,7 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../../core/bootstrap.php';
-requireLogin();
+requireRole(['admin', 'super_admin']);   // staff run check-in; starting, ending and re-opening events is for admins
 
 $event_id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
 $new_status = $_GET['status'] ?? $_POST['status'] ?? '';

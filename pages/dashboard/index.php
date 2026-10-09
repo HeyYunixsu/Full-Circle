@@ -3,8 +3,15 @@
 require_once __DIR__ . '/../../core/bootstrap.php';
 requireLogin();
 
-$active_event = getActiveEvent();
-$stats = $active_event ? getEventStats($active_event['id']) : null;
+// Overview tiles and the hourly chart count every live event together (or the next event when none is live)
+[$ov_events, $ov_kind] = overviewEvents();
+// Switcher above the tiles when several events are live: ?ov=<event id> shows one event, no ?ov shows all together
+$ov_pick = (int)($_GET['ov'] ?? 0);
+$ov_shown = array_values(array_filter($ov_events, fn($e) => (int)$e['id'] === $ov_pick)) ?: $ov_events;
+$ov_ids = array_map('intval', array_column($ov_shown, 'id'));
+$stats = $ov_ids ? getEventStats($ov_ids) : null;
+$active_event = $ov_shown[0] ?? null;
+$ov_multi = count($ov_ids) > 1;
 $is_admin = in_array($_SESSION['role'] ?? 'staff', ['admin', 'super_admin']);
 
 $ongoing   = $conn->query("SELECT * FROM events WHERE status = 'ongoing' ORDER BY event_date ASC LIMIT 4")->fetch_all(MYSQLI_ASSOC);
@@ -30,12 +37,12 @@ $activity = $conn->query("SELECT l.action, l.details, l.created_at, u.first_name
 
 // Check-ins by hour for the active event (sparkline in the right rail)
 $by_hour = [];
-if ($active_event) {
-    $s = $conn->prepare("SELECT HOUR(check_in_time) h, COUNT(*) c FROM attendees WHERE event_id = ? AND check_in_time IS NOT NULL GROUP BY h ORDER BY h");
-    $s->bind_param("i", $active_event['id']);
-    $s->execute();
-    $by_hour = $s->get_result()->fetch_all(MYSQLI_ASSOC);
+if ($ov_ids) {
+    $by_hour = $conn->query("SELECT HOUR(check_in_time) h, COUNT(*) c FROM attendees
+                             WHERE event_id IN (" . implode(',', $ov_ids) . ") AND check_in_time IS NOT NULL GROUP BY h ORDER BY h")->fetch_all(MYSQLI_ASSOC);
 }
+$ov_name = $ov_multi ? count($ov_ids) . ' live events' : ($active_event['event_name'] ?? '');
+$ov_checkin_url = BASE_URL . '/pages/checkin/' . ($ov_multi ? 'choose.php' : 'index.php?event_id=' . (int)($active_event['id'] ?? 0));
 
 $initials = fn($n) => strtoupper(mb_substr(trim($n), 0, 1) . (strpos(trim($n), ' ') ? mb_substr(trim($n), strpos(trim($n), ' ') + 1, 1) : ''));
 $ago = function ($ts) {
@@ -135,26 +142,45 @@ $flash = getFlashMessage();
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
     .calendar-day-header { font-size: 11px; font-weight: 600; color: var(--color-text-muted); padding: 6px 0; text-transform: uppercase; }
     .calendar-day { width: 30px; height: 30px; margin: 1px auto; display: grid; place-items: center; font-size: 13px; color: var(--color-text-muted); border-radius: 50%; font-variant-numeric: tabular-nums; }
-    .calendar-day.today { background: var(--wine-mid); color: var(--white); font-weight: 700; }
+    /* Today: bold magenta number (no fill), so it matches the event-day circles; an event day gets the pink ring */
+    .calendar-day.today, .calendar-day.today.has-event { color: var(--magenta); font-weight: 700; }
     .calendar-day.has-event { box-shadow: inset 0 0 0 2px var(--pink-bright); color: var(--color-text-strong); font-weight: 600; }
 
+    .overview-label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; color: var(--color-text-muted); }
+    .overview-label b { color: var(--color-text-strong); font-weight: 600; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px var(--success-bg); }
+    .ov-switch { display: inline-flex; gap: 2px; padding: 3px; max-width: 100%; overflow-x: auto; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px; }
+    .ov-switch a { padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--color-text-muted); white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; transition: background var(--dur-fast), color var(--dur-fast); }
+    .ov-switch a:hover { background: var(--color-bg); color: var(--color-text-strong); }
+    .ov-switch a[aria-current] { background: var(--wine-mid); color: var(--white); }
     @media (max-width: 1100px) { .dash { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <main class="main-content">
         <?php include __DIR__ . '/../../includes/header.php'; ?>
-        <?php if ($flash): ?>
-            <div class="alert alert-<?= $flash['type'] ?>"><?= icon('check', ['class' => 'icon-svg icon-sm']) ?> <?= $flash['message'] ?></div>
-        <?php endif; ?>
 
         <div class="dash">
         <div class="dash-main">
 
             <?php if ($stats): ?>
+            <div class="overview-label">
+                <?php if ($ov_kind === 'live'): ?><span class="live-dot" aria-hidden="true"></span><b>Live now</b><?php else: ?><b>Next event</b><?php endif; ?>
+                <?php if (count($ov_events) > 1): ?>
+                    <nav class="ov-switch" aria-label="Show numbers for">
+                        <a href="?"<?= $ov_multi ? ' aria-current="true"' : '' ?>>All <?= count($ov_events) ?></a>
+                        <?php foreach ($ov_events as $e): $on = !$ov_multi && (int)$e['id'] === $ov_ids[0]; ?>
+                            <a href="?ov=<?= (int)$e['id'] ?>" title="<?= htmlspecialchars($e['event_name']) ?>"<?= $on ? ' aria-current="true"' : '' ?>><?= htmlspecialchars($e['event_name']) ?></a>
+                        <?php endforeach; ?>
+                    </nav>
+                <?php else: ?>
+                    <span><?= htmlspecialchars($ov_events[0]['event_name']) ?></span>
+                <?php endif; ?>
+            </div>
             <div class="tiles">
                 <div class="tile"><span class="tile-badge wine">TA</span><div><b>Attendees</b><small>Registered <em><?= $stats['total'] ?></em></small></div></div>
                 <div class="tile"><span class="tile-badge ok">CI</span><div><b>Checked In</b><small>Arrived <em><?= $stats['checked_in'] ?></em>/<?= $stats['total'] ?></small></div></div>
@@ -251,9 +277,9 @@ $flash = getFlashMessage();
 
         <aside class="dash-rail">
             <div class="panel">
-                <div class="section-head"><h3>Check-ins by Hour</h3><?php if ($active_event): ?><a href="<?= BASE_URL ?>/pages/checkin/index.php?event_id=<?= $active_event['id'] ?>">Live view</a><?php endif; ?></div>
+                <div class="section-head"><h3>Check-ins by Hour</h3><?php if ($active_event): ?><a href="<?= $ov_checkin_url ?>">Live view</a><?php endif; ?></div>
                 <?php if (!$by_hour): ?>
-                    <p class="muted"><?= $active_event ? 'No check-ins yet for ' . htmlspecialchars($active_event['event_name']) . '.' : 'No active event.' ?></p>
+                    <p class="muted"><?= $active_event ? 'No check-ins yet for ' . htmlspecialchars($ov_name) . '.' : 'No active event.' ?></p>
                 <?php else:
                     $w = 300; $h = 90; $n = count($by_hour); $max = max(array_column($by_hour, 'c')) ?: 1;
                     $pts = [];
@@ -265,7 +291,7 @@ $flash = getFlashMessage();
                     $line = implode(' ', array_map(fn($p) => "$p[0],$p[1]", $pts));
                     $area = $pts[0][0] . ',' . ($h - 12) . ' ' . $line . ' ' . end($pts)[0] . ',' . ($h - 12);
                 ?>
-                <div class="spark-total"><?= array_sum(array_column($by_hour, 'c')) ?><small>checked in &middot; <?= htmlspecialchars(mb_strimwidth($active_event['event_name'], 0, 24, '…')) ?></small></div>
+                <div class="spark-total"><?= array_sum(array_column($by_hour, 'c')) ?><small>checked in &middot; <?= htmlspecialchars(mb_strimwidth($ov_name, 0, 24, '…')) ?></small></div>
                 <svg class="spark" viewBox="0 0 <?= $w ?> <?= $h ?>" role="img" aria-label="Check-ins per hour">
                     <line x1="0" y1="<?= $h - 12 ?>" x2="<?= $w ?>" y2="<?= $h - 12 ?>" stroke="var(--color-border)" stroke-width="1"/>
                     <polygon points="<?= $area ?>" fill="rgba(194, 59, 142, 0.12)"/>
@@ -295,8 +321,11 @@ $flash = getFlashMessage();
                     $today = date('j');
                     for ($i = 0; $i < $first_day; $i++) echo '<div></div>';
                     for ($day = 1; $day <= $days_in_month; $day++) {
-                        $class = 'calendar-day' . ($day == $today ? ' today' : '') . (in_array($day, $event_days) ? ' has-event' : '');
-                        echo "<div class='$class'>$day</div>";
+                        $is_today = $day == $today;
+                        $has_event = in_array($day, $event_days);
+                        $class = 'calendar-day' . ($is_today ? ' today' : '') . ($has_event ? ' has-event' : '');
+                        $tip = implode(' · ', array_filter([$is_today ? 'Today' : '', $has_event ? 'Event day' : '']));
+                        echo "<div class='$class'" . ($tip ? " title='$tip'" : '') . ">$day</div>";
                     }
                     ?>
                 </div>

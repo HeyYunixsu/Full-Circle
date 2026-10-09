@@ -89,6 +89,7 @@ $page_title = 'Badge Designer';
     }
     @media print { body * { visibility: hidden; } #badge, #badge * { visibility: visible; } #badge { position: fixed; top: 20px; left: 20px; box-shadow: none; } }
 </style>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
 <body class="dashboard-body">
 <div class="dashboard-container">
