@@ -123,6 +123,7 @@ $page_title = 'Badge Designer';
                     <div id="textProps" style="display:none;">
                         <div class="prop-row"><span class="prop-label">Font</span>
                             <select class="prop-select" id="propFont" onchange="applyProps()">
+                                <option value="Poppins">Poppins</option>
                                 <option value="Plus Jakarta Sans">Jakarta Sans</option>
                                 <option value="Arial">Arial</option>
                                 <option value="Georgia">Georgia</option>
@@ -158,6 +159,7 @@ $page_title = 'Badge Designer';
                                 <option value="company">Company</option>
                                 <option value="designation">Designation</option>
                                 <option value="code">Attendee Code</option>
+                                <option value="event">Event Name</option>
                             </select>
                         </div>
                     </div>
@@ -188,7 +190,7 @@ $page_title = 'Badge Designer';
                 <div class="bd-sec">
                     <div class="bd-sec-label">Templates</div>
                     <div class="tpl-grid">
-                        <div class="tpl-card active" onclick="applyTemplate('bold')" id="tpl-bold">Bold</div>
+                        <div class="tpl-card" onclick="applyTemplate('bold')" id="tpl-bold">Bold</div>
                         <div class="tpl-card" onclick="applyTemplate('minimal')" id="tpl-minimal">Minimal</div>
                         <div class="tpl-card" onclick="applyTemplate('elegant')" id="tpl-elegant">Elegant</div>
                         <div class="tpl-card" onclick="applyTemplate('event')" id="tpl-event">Event</div>
@@ -207,17 +209,14 @@ $page_title = 'Badge Designer';
                     </div>
                 </div>
                 <div class="bd-sec">
-                    <div class="bd-sec-label">Export</div>
-                    <button class="btn-sm bd-export-btn" onclick="saveTemplate()"><i class="fas fa-save"></i> Save Template</button>
-                    <button class="btn-sm light bd-export-btn" onclick="printBadge()"><i class="fas fa-print"></i> Print Badge</button>
-                    <a class="btn-sm ghost bd-export-btn" href="<?= BASE_URL ?>/pages/badges/index.php"><i class="fas fa-folder"></i> All Templates</a>
+                    <div class="bd-sec-label">Saved designs</div>
+                    <a class="btn-sm light bd-export-btn" href="<?= BASE_URL ?>/pages/badges/index.php"><i class="fas fa-folder"></i> All saved designs</a>
                 </div>
             </div>
         </div>
     </main>
 </div>
 
-<div class="toast" id="toast"><div class="toast-dot"></div><span id="toastMsg"></span></div>
 <input type="file" id="logoInput" accept="image/*" onchange="handleImageUpload(this,'logo')">
 <input type="file" id="bgInput" accept="image/*" onchange="handleImageUpload(this,'bg')">
 
@@ -226,8 +225,7 @@ const SAVE_URL = '<?= BASE_URL ?>/api/badges/save_template.php';
 const SAVED = <?= $saved_layout ?>;
 let elements=[], selectedId=null, nextId=1, badgeW=360, badgeH=225;
 const badge=document.getElementById('badge');
-let toastTimer;
-function showToast(msg,type='g'){const t=document.getElementById('toast');t.className='toast toast-'+type+' show';document.getElementById('toastMsg').textContent=msg;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);}
+function showToast(msg,type='g'){appToast(msg,type==='r'?'error':'success');}
 function qrUrl(code){return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(code)+'&ecc=H&margin=4';}
 function makeEl(config){const el={id:nextId++,...config};elements.push(el);renderEl(el);selectEl(el.id);renderLayers();return el;}
 function addText(){makeEl({type:'text',content:'New Text',x:40,y:80,fontSize:18,fontFamily:'Plus Jakarta Sans',fontWeight:'600',color:'#111111',align:'left',_field:''});}

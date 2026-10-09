@@ -24,7 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($email) || empty($password)) {
         $error = 'Please fill in all fields.';
     } else {
-        $sql = "SELECT * FROM users WHERE email = ? LIMIT 1";
+        // lock_secs > 0 while the account is locked (worked out by the database clock, like locked_until)
+        $sql = "SELECT *, GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), locked_until)) AS lock_secs FROM users WHERE email = ? LIMIT 1";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("s", $email);
         $stmt->execute();
@@ -33,7 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result->num_rows === 1) {
             $user = $result->fetch_assoc();
 
-            if (verifyPassword($password, $user['password'])) {
+            if ($user['lock_secs'] > 0) {
+                $mins = (int)ceil($user['lock_secs'] / 60);
+                $error = "Too many wrong passwords. This account is locked for $mins more minute" . ($mins === 1 ? '' : 's') . '.';
+            } elseif (verifyPassword($password, $user['password'])) {
                 
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['email'] = $user['email'];
@@ -41,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['last_name'] = $user['last_name'];
                 $_SESSION['role'] = $user['role'];
 
-                $update_sql = "UPDATE users SET last_login = NOW(), status = 'active' WHERE id = ?";
+                $update_sql = "UPDATE users SET last_login = NOW(), status = 'active', failed_logins = 0, locked_until = NULL WHERE id = ?";
                 $update_stmt = $conn->prepare($update_sql);
                 $update_stmt->bind_param("i", $user['id']);
                 $update_stmt->execute();
@@ -50,7 +54,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 redirect(BASE_URL . '/pages/dashboard/index.php', 'Welcome back, ' . $user['first_name'] . '!');
             } else {
-                $error = 'Invalid email or password.';
+                // 5 wrong passwords in a row lock the account for 15 minutes (stops password guessing on the public link)
+                $fails = (int)$user['failed_logins'] + 1;
+                if ($fails >= 5) {
+                    $lock = $conn->prepare("UPDATE users SET failed_logins = 0, locked_until = NOW() + INTERVAL 15 MINUTE WHERE id = ?");
+                    $lock->bind_param("i", $user['id']);
+                    $lock->execute();
+                    logActivity('Account Locked', '5 wrong passwords for ' . $user['email'] . ' from ' . ($_SERVER['REMOTE_ADDR'] ?? ''));
+                    $error = 'Too many wrong passwords. This account is locked for 15 minutes.';
+                } else {
+                    $f = $conn->prepare("UPDATE users SET failed_logins = ? WHERE id = ?");
+                    $f->bind_param("ii", $fails, $user['id']);
+                    $f->execute();
+                    $left = 5 - $fails;
+                    $error = 'Invalid email or password.' . ($left <= 2 ? " $left more wrong " . ($left === 1 ? 'try' : 'tries') . ' will lock this account for 15 minutes.' : '');
+                }
             }
         } else {
             $error = 'Invalid email or password.';

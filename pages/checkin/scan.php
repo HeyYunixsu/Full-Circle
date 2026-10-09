@@ -83,6 +83,8 @@ $icon_plus = icon('plus', ['class' => 'icon-svg icon-sm']);
     .camera-fallback { padding: 40px 20px; text-align: center; color: rgba(255, 255, 255, .85); display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--wine-darkest); }
     .camera-fallback .icon-svg { width: 36px; height: 36px; opacity: .7; margin-bottom: 6px; }
     .camera-fallback small { opacity: .7; }
+    .undo-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 4px 0; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--color-text-muted); cursor: pointer; text-decoration: underline; }
+    .undo-link:hover { color: var(--magenta); }
 </style>
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
@@ -143,6 +145,8 @@ const ICON_PLUS = `<?= addslashes($icon_plus) ?>`;
 // Archived events take no walk-ins (walkin.php refuses them), so no shortcut there
 const WALKIN_URL = <?= $event['status'] === 'archived' ? 'null' : "'" . BASE_URL . '/pages/checkin/walkin.php?event_id=' . $event_id . "'" ?>;
 const BADGE_URL = '<?= BASE_URL ?>/pages/checkin/badge.php?attendee_id=';
+const UNDO_URL = '<?= BASE_URL ?>/api/checkin/undo.php';
+const ICON_UNDO = `<?= addslashes(icon('undo', ['class' => 'icon-svg icon-sm'])) ?>`;
 let lastCode = '', lastAt = 0, clearTimer = null;
 
 function escapeHtml(s) {
@@ -195,6 +199,7 @@ async function processScan(code) {
                         <a class="btn-sm light" href="${BADGE_URL}${encodeURIComponent(a.id)}">${ICON_PRINTER} Print Badge</a>
                         <button class="btn-sm" onclick="resetScanner()">${ICON_TICKET} Scan Next</button>
                     </div>
+                    ${!already && !SESSION_ID ? `<button class="undo-link" onclick="undoCheckin(${Number(a.id)})">${ICON_UNDO} Wrong person? Undo</button>` : ''}
                 </div>
             `);
             // A fresh check-in clears itself so the line keeps moving; a warning stays until dismissed
@@ -217,6 +222,21 @@ async function processScan(code) {
         showResult(`<div class="result-card result-bad"><div class="result-head">${ICON_ERROR} Connection problem</div><p>Check the connection and scan again.</p><div class="action-buttons"><button class="btn-sm light" onclick="resetScanner()">Close</button></div></div>`);
     } finally {
         setTimeout(() => { isProcessing = false; }, 1500);
+    }
+}
+
+// Wrong person scanned: put them back to Not yet (staff can do this within 5 minutes)
+async function undoCheckin(id) {
+    clearTimeout(clearTimer);
+    const body = new FormData();
+    body.append('attendee_id', id);
+    body.append('reason', 'Scanned by mistake');
+    body.append('ajax', '1');
+    try {
+        const d = await (await fetch(UNDO_URL, { method: 'POST', body })).json();
+        showResult(`<div class="result-card ${d.success ? 'result-warn' : 'result-bad'}"><div class="result-head">${d.success ? ICON_UNDO : ICON_ERROR} ${d.success ? 'Check-in undone' : 'Could not undo'}</div><p>${escapeHtml(d.message)}</p><div class="action-buttons"><button class="btn-sm" onclick="resetScanner()">${ICON_TICKET} Scan Next</button></div></div>`);
+    } catch (e) {
+        showResult(`<div class="result-card result-bad"><div class="result-head">${ICON_ERROR} Connection problem</div><p>The check-in was not undone. Try again.</p><div class="action-buttons"><button class="btn-sm light" onclick="resetScanner()">Close</button></div></div>`);
     }
 }
 

@@ -19,6 +19,8 @@ $company_caps = companyCapacity($event_id);
 $sessions = $conn->query("SELECT * FROM sessions WHERE event_id = $event_id ORDER BY session_date, start_time");
 
 $stats = getEventStats($event_id);
+$ev_tpl = badgeTemplateFor($event['badge_template_id'] ?? 0);
+$is_admin = in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
 
 // Completed events: how many checked-in attendees still need the feedback link (same rule the sender uses)
 $fb_pending = null;
@@ -221,6 +223,13 @@ $page_title = $event['event_name'];
     }
     .info-title .icon-svg { width: 18px; height: 18px; color: #c23b8e; }
     .info-card p { color: #444444; line-height: 1.7; margin: 0; }
+    .ev-badge { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .ev-badge-thumb { flex: none; }
+    .ev-badge strong { display: block; color: var(--color-text-strong); }
+    .ev-badge p { font-size: 13px; color: var(--color-text-muted); }
+    .ev-badge-change { margin-top: 12px; }
+    .ev-badge-change summary { cursor: pointer; display: inline-block; }
+    .ev-badge-change form { margin-top: 12px; }
 
     .company-list, .session-list { 
         display: flex; 
@@ -438,6 +447,35 @@ $page_title = $event['event_name'];
                             </div>
                         <?php endwhile; ?>
                     </div>
+                <?php endif; ?>
+
+                <div class="info-title" style="margin-top: 24px;">
+                    <?= icon('ticket', ['class' => 'icon-svg']) ?>
+                    Badge design
+                </div>
+                <div class="ev-badge">
+                    <?php if ($ev_tpl): ?><div class="ev-badge-thumb" id="evBadgeThumb"></div><?php endif; ?>
+                    <div>
+                        <strong><?= $ev_tpl ? htmlspecialchars($ev_tpl['template_name']) : 'Standard badge' ?></strong>
+                        <p><?= $ev_tpl && (int)$ev_tpl['id'] !== (int)$event['badge_template_id'] ? 'No design chosen for this event, so the favorite design is used.' : 'Every badge for this event prints with this design.' ?></p>
+                    </div>
+                </div>
+                <?php $badge_render_loaded = true; ?>
+                <script src="<?= BASE_URL ?>/assets/js/badge-render.js?v=<?= ASSET_VER ?>"></script>
+                <?php if ($ev_tpl): ?>
+                <script>
+                    document.getElementById('evBadgeThumb').innerHTML = renderBadge(<?= json_encode(json_decode($ev_tpl['layout_json'], true), JSON_HEX_TAG) ?>, Object.assign({}, BADGE_SAMPLE, { event: <?= json_encode($event['event_name']) ?> }), 0.5);
+                </script>
+                <?php endif; ?>
+                <?php if ($is_admin): ?>
+                    <details class="ev-badge-change">
+                        <summary class="cap-link">Change design</summary>
+                        <form method="POST" action="<?= BASE_URL ?>/api/events/set_badge.php">
+                            <input type="hidden" name="event_id" value="<?= $event_id ?>">
+                            <?php $bp_picked = (int)($ev_tpl['id'] ?? 0); include __DIR__ . '/../../includes/badge_picker.php'; ?>
+                            <div class="form-actions"><button type="submit" class="btn btn-primary">Save badge design</button></div>
+                        </form>
+                    </details>
                 <?php endif; ?>
             </div>
 

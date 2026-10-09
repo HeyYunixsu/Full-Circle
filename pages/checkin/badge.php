@@ -6,7 +6,7 @@ requireLogin();
 
 $attendee_id = (int)($_GET['attendee_id'] ?? 0);
 
-$stmt = $conn->prepare("SELECT a.*, e.event_name FROM attendees a JOIN events e ON a.event_id = e.id WHERE a.id = ?");
+$stmt = $conn->prepare("SELECT a.*, e.event_name, e.badge_template_id, e.status AS event_status FROM attendees a JOIN events e ON a.event_id = e.id WHERE a.id = ?");
 $stmt->bind_param("i", $attendee_id);
 $stmt->execute();
 $attendee = $stmt->get_result()->fetch_assoc();
@@ -32,6 +32,8 @@ if (!isset($backs[$from])) $from = '';
 [$back_url, $back_label] = $backs[$from] ?? [BASE_URL . '/pages/checkin/scan.php?event_id=' . (int)$attendee['event_id'], 'Back to Scan'];
 
 $qr_url = getQRCodeImageUrl($attendee['qr_code'], $attendee['qr_image_path']);
+$tpl = badgeTemplateFor($attendee['badge_template_id']);   // the event's design (or the favorite); null = standard badge
+$can_edit = canEditAttendee($attendee['event_status']);    // fix a wrong name right before printing
 $page_title = 'Badge Preview';
 $flash = getFlashMessage();
 ?>
@@ -47,6 +49,11 @@ $flash = getFlashMessage();
     .badge-actions { display: flex; gap: 12px; margin-top: 20px; }
     .badge-actions .btn-sm { flex: 1; }
     .badge-stage { overflow-x: auto; padding: 4px 0; }
+    .badge-fix-toggle { display: flex; justify-content: center; }
+    .badge-fix { margin-top: 8px; padding: 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg); }
+    .badge-fix .form-actions { margin-top: 4px; }
+    .badge-fix-msg { font-size: 13px; margin: 0 0 12px; }
+    .badge-fix-msg.is-error { color: var(--color-danger, #b42318); }
 
     @media print {
         body { background: white; margin: 0; padding: 0; }
@@ -54,6 +61,8 @@ $flash = getFlashMessage();
         .main-content { margin: 0 !important; padding: 0 !important; }
         .panel { border: none; padding: 0; }
         .badge { box-shadow: none !important; margin: 0 auto !important; page-break-inside: avoid; }
+        /* Print the design's background and colour blocks even when "Background graphics" is off in the print dialog */
+        .badge, .badge *, .badge-render, .badge-render * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
 
     /* The printed badge itself has a fixed physical size, so the pixel values below are intentional */
@@ -97,12 +106,12 @@ $flash = getFlashMessage();
                 <div class="badge-picker no-print form-group">
                     <label for="tplPicker">Badge design</label>
                     <select id="tplPicker" class="form-input" onchange="pickTemplate()">
-                        <option value="">Default badge</option>
+                        <option value="">Standard badge</option>
                     </select>
                 </div>
 
                 <div class="badge-stage">
-                    <div class="badge" id="defaultBadge">
+                    <div class="badge" id="defaultBadge"<?= $tpl ? ' style="display:none"' : '' ?>>
                         <div class="badge-stripe"></div>
                         <div class="badge-content">
                             <div class="badge-top">
@@ -113,8 +122,8 @@ $flash = getFlashMessage();
                             </div>
 
                             <div>
-                                <div class="badge-name"><?= htmlspecialchars($attendee['full_name']) ?></div>
-                                <div class="badge-company"><?= htmlspecialchars($attendee['company']) ?></div>
+                                <div class="badge-name" id="stdName"><?= htmlspecialchars($attendee['full_name']) ?></div>
+                                <div class="badge-company" id="stdCompany"><?= htmlspecialchars($attendee['company']) ?></div>
                             </div>
 
                             <div class="badge-qr-section">
@@ -126,8 +135,40 @@ $flash = getFlashMessage();
                         </div>
                     </div>
 
-                    <div id="customBadge" style="display:none;margin:24px auto;"></div>
+                    <div id="customBadge" style="<?= $tpl ? '' : 'display:none;' ?>margin:24px auto;"></div>
                 </div>
+
+                <?php if ($can_edit): ?>
+                <div class="no-print">
+                    <div class="badge-fix-toggle">
+                        <button type="button" class="btn-sm light" id="fixToggle" aria-expanded="false" aria-controls="fixForm" onclick="toggleFix(true)">
+                            <?= icon('edit', ['class' => 'icon-svg icon-sm']) ?> Wrong name? Edit details
+                        </button>
+                    </div>
+                    <!-- Typing updates the badge above right away; Save fixes the attendee record everywhere (logged) -->
+                    <form class="badge-fix" id="fixForm" hidden onsubmit="saveFix(event)" autocomplete="off">
+                        <p class="badge-fix-msg" id="fixMsg" role="status">Changes show on the badge as you type. Save to fix the attendee list too.</p>
+                        <div class="form-group">
+                            <label for="fixName">Full name</label>
+                            <input type="text" id="fixName" class="form-input" required value="<?= htmlspecialchars($attendee['full_name']) ?>">
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="fixCompany">Company</label>
+                                <input type="text" id="fixCompany" class="form-input" required value="<?= htmlspecialchars($attendee['company']) ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="fixDesignation">Designation <span class="optional">(optional)</span></label>
+                                <input type="text" id="fixDesignation" class="form-input" value="<?= htmlspecialchars($attendee['designation'] ?? '') ?>">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="toggleFix(false)">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="fixSave">Save changes</button>
+                        </div>
+                    </form>
+                </div>
+                <?php endif; ?>
 
                 <div class="badge-actions no-print">
                     <button class="btn-sm lg" onclick="printBadge()">
@@ -144,15 +185,34 @@ $flash = getFlashMessage();
     </main>
 </div>
 
+<script src="<?= BASE_URL ?>/assets/js/badge-render.js?v=<?= ASSET_VER ?>"></script>
 <script>
 const ATTENDEE = {
     name:        <?= json_encode($attendee['full_name']) ?>,
     company:     <?= json_encode($attendee['company']) ?>,
     designation: <?= json_encode($attendee['designation'] ?? '') ?>,
     code:        <?= json_encode($attendee['attendee_code']) ?>,
+    event:       <?= json_encode($attendee['event_name']) ?>,
     qr_url:      <?= json_encode($qr_url) ?>
 };
+const START_TPL = <?= $tpl ? (int)$tpl['id'] : 0 ?>;
 let TEMPLATES = [];
+
+let LAYOUT = <?= $tpl ? json_encode(json_decode($tpl['layout_json'], true), JSON_HEX_TAG) : 'null' ?>;   // null = standard badge
+
+// Draw the badge on screen from ATTENDEE (also after every edit)
+function redraw() {
+    if (LAYOUT) {
+        const box = document.getElementById('customBadge');
+        box.innerHTML = renderBadge(LAYOUT, ATTENDEE);
+        fitBadgeText(box);   // long names shrink so they never run under the QR code
+    }
+    document.getElementById('stdName').textContent = ATTENDEE.name;
+    document.getElementById('stdCompany').textContent = ATTENDEE.company;
+}
+// Draw the event's design straight away (again once the fonts load, so the fit is measured right); other designs load after
+redraw();
+if (document.fonts) document.fonts.ready.then(redraw);
 
 async function loadTemplates() {
     try {
@@ -164,56 +224,86 @@ async function loadTemplates() {
         d.templates.forEach(t => {
             const o = document.createElement('option');
             o.value = t.id;
-            o.textContent = (t.is_favorite ? '★ ' : '') + t.name;
+            o.textContent = (t.is_favorite ? '\u2605 ' : '') + t.name + (t.id === START_TPL ? ' (this event)' : '');
             sel.appendChild(o);
         });
+        sel.value = START_TPL || '';
     } catch (e) {}
 }
 
+// Switching here changes this one badge only; the event's design is set on the event page
 function pickTemplate() {
     const id = parseInt(document.getElementById('tplPicker').value) || 0;
     const def = document.getElementById('defaultBadge');
     const box = document.getElementById('customBadge');
-    if (!id) {
-        def.style.display = 'flex';
-        box.style.display = 'none';
-        box.innerHTML = '';
-        return;
-    }
     const tpl = TEMPLATES.find(t => t.id === id);
-    if (!tpl || !tpl.layout) return;
-    def.style.display = 'none';
-    box.style.display = 'block';
-    box.innerHTML = renderTemplate(tpl.layout);
+    LAYOUT = tpl && tpl.layout ? tpl.layout : null;
+    def.style.display = LAYOUT ? 'none' : 'flex';
+    box.style.display = LAYOUT ? 'block' : 'none';
+    box.innerHTML = '';
+    redraw();
 }
 
-function renderTemplate(layout) {
-    const w = layout.size?.w || 360;
-    const h = layout.size?.h || 225;
-    const bg = layout.bg?.color || '#ffffff';
-    let html = `<div class="badge print-target" style="width:${w}px;height:${h}px;background:${bg};border-radius:12px;position:relative;overflow:hidden;margin:0 auto;">`;
-    (layout.elements || []).forEach(el => {
-        const map = { name: ATTENDEE.name, company: ATTENDEE.company, designation: ATTENDEE.designation, code: ATTENDEE.code };
-        if (el.type === 'text') {
-            const txt = el._field ? (map[el._field] || el.content) : el.content;
-            html += `<div style="position:absolute;left:${el.x}px;top:${el.y}px;font-family:'${el.fontFamily||'sans-serif'}',sans-serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight||400};color:${el.color};text-align:${el.align||'left'};white-space:nowrap;">${escapeHtml(txt)}</div>`;
-        } else if (el.type === 'qr') {
-            html += `<div style="position:absolute;left:${el.x}px;top:${el.y}px;width:${el.size}px;height:${el.size}px;background:#fff;"><img src="${ATTENDEE.qr_url}" style="width:100%;height:100%;"></div>`;
-        } else if (el.type === 'img') {
-            html += `<img src="${el.src}" style="position:absolute;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;object-fit:contain;">`;
-        } else if (el.type === 'rect' || el.type === 'line') {
-            html += `<div style="position:absolute;left:${el.x}px;top:${el.y}px;width:${el.w}px;height:${el.h}px;background:${el.fill};opacity:${el.opacity??1};border-radius:${el.radius||0}px;"></div>`;
-        }
-    });
-    html += `</div>`;
-    return html;
+// ---- Wrong name? Edit details (only rendered for users allowed to edit this attendee)
+const SAVED = { name: ATTENDEE.name, company: ATTENDEE.company, designation: ATTENDEE.designation };
+const fixForm = document.getElementById('fixForm');
+const fixVal = id => document.getElementById(id).value.trim();
+const fixDirty = () => !!fixForm && !fixForm.hidden &&
+    (fixVal('fixName') !== SAVED.name || fixVal('fixCompany') !== SAVED.company || fixVal('fixDesignation') !== (SAVED.designation || ''));
+
+function toggleFix(open) {
+    fixForm.hidden = !open;
+    document.getElementById('fixToggle').setAttribute('aria-expanded', open);
+    document.getElementById('fixToggle').style.display = open ? 'none' : '';
+    if (open) { document.getElementById('fixName').focus(); return; }
+    // Cancel: put the saved details back on the badge
+    ['fixName', 'fixCompany', 'fixDesignation'].forEach((id, i) => document.getElementById(id).value = [SAVED.name, SAVED.company, SAVED.designation || ''][i]);
+    Object.assign(ATTENDEE, SAVED);
+    redraw();
 }
 
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+if (fixForm) fixForm.addEventListener('input', () => {
+    ATTENDEE.name = fixVal('fixName');
+    ATTENDEE.company = fixVal('fixCompany');
+    ATTENDEE.designation = fixVal('fixDesignation');
+    redraw();
+});
+
+async function saveFix(e) {
+    if (e) e.preventDefault();
+    const msg = document.getElementById('fixMsg'), btn = document.getElementById('fixSave');
+    if (!fixVal('fixName') || !fixVal('fixCompany')) {
+        msg.textContent = 'Name and company cannot be empty.'; msg.classList.add('is-error');
+        return false;
+    }
+    btn.disabled = true;
+    try {
+        const body = new FormData();
+        body.append('id', <?= (int)$attendee_id ?>);
+        body.append('full_name', fixVal('fixName'));
+        body.append('company', fixVal('fixCompany'));
+        body.append('designation', fixVal('fixDesignation'));
+        const d = await (await fetch('<?= BASE_URL ?>/api/attendees/update.php', { method: 'POST', body })).json();
+        if (!d.success) throw new Error(d.message);
+        // Use what was stored (names are capitalized on save)
+        Object.assign(SAVED, { name: d.attendee.full_name, company: d.attendee.company, designation: d.attendee.designation || '' });
+        Object.assign(ATTENDEE, SAVED);
+        redraw();
+        toggleFix(false);
+        msg.textContent = 'Changes show on the badge as you type. Save to fix the attendee list too.'; msg.classList.remove('is-error');
+        appToast('Saved. ' + SAVED.name + ' is updated in the attendee list.', 'success');
+        return true;
+    } catch (err) {
+        msg.textContent = err.message || 'Could not save. Check the connection and try again.'; msg.classList.add('is-error');
+        return false;
+    } finally {
+        btn.disabled = false;
+    }
 }
 
-function printBadge() {
+async function printBadge() {
+    // Unsaved edits are saved first, so the printed name and the attendee list always match
+    if (fixDirty() && !(await saveFix())) return;
     window.print();
     setTimeout(() => {
         window.location.href = '?attendee_id=<?= $attendee_id ?>&print=1<?= $from ? '&from=' . $from : '' ?>';

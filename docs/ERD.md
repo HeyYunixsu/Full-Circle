@@ -118,6 +118,7 @@ erDiagram
         varchar event_image
         varchar event_manager
         int max_attendees
+        int badge_template_id FK
         varchar registration_qr
         enum status
         datetime archived_at
@@ -208,6 +209,7 @@ erDiagram
 | events | companies | `event_id` | 1 : N | CASCADE |
 | events | sessions | `event_id` | 1 : N | CASCADE |
 | events | badge_templates | `event_id` (nullable: global template kung NULL) | 0..1 : N | CASCADE |
+| badge_templates | events | `events.badge_template_id`: design na ipi-print sa badges ng event (NULL = favorite design) | 0..1 : N | SET NULL |
 | events | feedback | `event_id` | 1 : N | CASCADE |
 | attendees | feedback | `attendee_id` | 1 : N | CASCADE |
 | sessions | feedback | `session_id` (NULL = feedback sa buong event) | 0..1 : N | CASCADE |
@@ -223,9 +225,9 @@ erDiagram
 
 | Table | Laman | Mahalagang rules |
 |---|---|---|
-| users | Accounts ng Super Admin, Admin at Staff | `email` unique; password naka-bcrypt |
+| users | Accounts ng Super Admin, Admin at Staff | `email` unique; password naka-bcrypt; 5 maling password -> `locked_until` = 15 minuto (`failed_logins` ang bilang) |
 | passkeys | Codes para makapag-register ng bagong account at role | `passkey_code` unique; `is_used` para isang beses lang magamit |
-| events | Events: petsa, oras, lugar, status | status: upcoming → ongoing → completed → archived |
+| events | Events: petsa, oras, lugar, status, badge design | status: upcoming → ongoing → completed → archived; `badge_template_id` NULL = favorite design ang gamit |
 | companies | Mga company na kasali sa event at ang attendee limit nila | `max_attendees` NULL = walang limit |
 | attendees | Registered at walk-in na attendees, QR code, check-in status | `attendee_code` unique; isang email lang bawat event (`event_id` + `email`) |
 | sessions | Talks o breakouts sa loob ng event | |

@@ -26,6 +26,10 @@ if (!$a) out(false, 'Attendee not found.');
 if ($a['event_status'] === 'archived') {
     out(false, 'This event is archived. Attendee records are locked.');
 }
+// Same rule the pages use to show the Edit button (staff: only while the event is ongoing)
+if (!canEditAttendee($a['event_status'])) {
+    out(false, 'Only an admin can edit attendees before the event starts.');
+}
 
 $full_name   = capitalizeWords($_POST['full_name']     ?? $a['full_name']);
 $email       = trim($_POST['email']         ?? $a['email']);

@@ -50,7 +50,7 @@
 
 @media (max-width: 768px) { .topbar-back { width: 34px; height: 34px; } }
 
-@media (max-width: 768px) { .flash-stack { top: auto; bottom: 16px; left: 16px; right: 16px; width: auto; } }
+@media (max-width: 768px) { .flash-stack { top: auto; bottom: 16px; left: 16px; right: 16px; width: auto; transform: none; } }
 
 /* ---------- pages/attendees/index.php (body.page-attendees) ---------- */
 @media (max-width: 768px) {

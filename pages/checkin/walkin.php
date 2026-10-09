@@ -27,8 +27,44 @@ if ($event['status'] === 'archived') {
 // Same list as the event page: companies set up for the event plus those in the attendee list, most registered first
 $companies = array_column(companyCapacity($event_id), 'name');
 
+// Attendees of this event with the same name (spaces and capitals ignored) -- pre-registered under another email, for example
+function sameNameAttendees($event_id, $name) {
+    global $conn;
+    $name = preg_replace('/\s+/u', ' ', trim($name));
+    $s = $conn->prepare("SELECT id, full_name, company, email, status, check_in_time FROM attendees
+                         WHERE event_id = ? AND REGEXP_REPLACE(TRIM(full_name), '[[:space:]]+', ' ') = ? LIMIT 5");
+    $s->bind_param("is", $event_id, $name);
+    $s->execute();
+    return $s->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+// j***@gmail.com: enough for staff to recognise the person without showing the whole address
+function maskEmail($email) {
+    [$user, $domain] = array_pad(explode('@', $email, 2), 2, '');
+    return mb_substr($user, 0, 1) . '***@' . $domain;
+}
+
 $error = '';
+$same_name = [];
 $closed = checkinClosedReason($event);   // walk-ins are checked in on the spot, so the check-in rule applies
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$closed && ($use_id = (int)($_POST['use_existing'] ?? 0))) {
+    // "Yes, it's them": check in the person already on the list instead of registering them twice
+    $s = $conn->prepare("SELECT id, full_name, status FROM attendees WHERE id = ? AND event_id = ?");
+    $s->bind_param("ii", $use_id, $event_id);
+    $s->execute();
+    if ($row = $s->get_result()->fetch_assoc()) {
+        $msg = $row['full_name'] . ' was already checked in.';
+        if ($row['status'] !== 'checked_in') {
+            $u = $conn->prepare("UPDATE attendees SET status = 'checked_in', check_in_time = NOW() WHERE id = ? AND status <> 'checked_in'");
+            $u->bind_param("i", $use_id);
+            $u->execute();
+            logActivity('Check-in', 'Checked in: ' . $row['full_name'] . ' (at the walk-in desk, already on the list)');
+            markOngoingIfEventDay($event);
+            $msg = 'Checked in ' . $row['full_name'] . '. They were already on the list, so no new registration was made.';
+        }
+        redirect(BASE_URL . '/pages/checkin/badge.php?attendee_id=' . $use_id, $msg);
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$closed) {
     $full_name     = capitalizeWords($_POST['full_name'] ?? '');
@@ -58,6 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$closed) {
         if ($check->get_result()->num_rows > 0) {
             $error = 'This email is already registered for this event.';
             $duplicate = true;
+        } elseif (empty($_POST['confirm_new']) && ($same_name = sameNameAttendees($event_id, $full_name))) {
+            // Nothing is saved yet: the form shows "Is this the same person?" with both choices
         } else {
             $attendee_code = generateAttendeeCode($event_id);
             $qr_data = generateQRData($attendee_code);
@@ -134,11 +172,12 @@ $page_title = 'Walk-in Registration';
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=<?= ASSET_VER ?>">
 <style>
     .alert a { font-weight: 600; text-decoration: underline; }
-    /* One-tap company buttons under the Company box (most registered first) */
-    .company-picks { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 18px; }
-    .company-pick { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-strong); font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color var(--dur-fast), background var(--dur-fast); }
-    .company-pick:hover { border-color: var(--magenta); }
-    .company-pick[aria-pressed="true"] { background: var(--wine-mid); border-color: var(--wine-mid); color: var(--white); }
+    .dupe-box { border: 1px solid rgba(245, 165, 36, .45); background: rgba(245, 165, 36, .08); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+    .dupe-box strong { color: var(--color-text-strong); }
+    .dupe-box > p { font-size: 14px; margin: 4px 0 12px; }
+    .dupe-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+    .dupe-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 12px; }
+    .dupe-list span { display: block; font-size: 13px; color: var(--color-text-muted); }
 </style>
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/mobile.css?v=<?= ASSET_VER ?>" media="(max-width: 768px)">
 </head>
@@ -172,6 +211,27 @@ $page_title = 'Walk-in Registration';
 
                 <!-- autocomplete off: on a shared check-in laptop the browser would suggest the previous guest's details -->
                 <form method="POST" autocomplete="off">
+                    <?php if ($same_name): ?>
+                    <div class="dupe-box" role="alert">
+                        <strong>Is this the same person?</strong>
+                        <p><?= count($same_name) === 1 ? 'Someone with this name is' : 'People with this name are' ?> already on the list for this event. Check them in instead, so they are not counted twice.</p>
+                        <ul class="dupe-list">
+                            <?php foreach ($same_name as $m): ?>
+                            <li>
+                                <div>
+                                    <b><?= htmlspecialchars($m['full_name']) ?></b>
+                                    <span><?= htmlspecialchars($m['company']) ?> &middot; <?= htmlspecialchars(maskEmail($m['email'])) ?> &middot;
+                                        <?= $m['status'] === 'checked_in' ? 'Checked in ' . date('g:i A', strtotime($m['check_in_time'])) : 'Not checked in yet' ?></span>
+                                </div>
+                                <button type="submit" name="use_existing" value="<?= (int)$m['id'] ?>" class="btn-sm" formnovalidate>
+                                    <?= $m['status'] === 'checked_in' ? 'Yes, open their badge' : 'Yes, check them in' ?>
+                                </button>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                        <button type="submit" name="confirm_new" value="1" class="btn-sm light">No, register a new person</button>
+                    </div>
+                    <?php endif; ?>
                     <div class="form-group">
                         <label for="full_name">Full name</label>
                         <input type="text" name="full_name" id="full_name" class="form-input" required autofocus value="<?= htmlspecialchars($_POST['full_name'] ?? '') ?>" placeholder="e.g. Juan Dela Cruz">
@@ -196,20 +256,13 @@ $page_title = 'Walk-in Registration';
                             <datalist id="company-list">
                                 <?php foreach ($companies as $c): ?><option value="<?= htmlspecialchars($c) ?>"></option><?php endforeach; ?>
                             </datalist>
-                            <div class="form-help" id="company-help">Tap a company below, or type a new one.</div>
+                            <div class="form-help" id="company-help">Start typing to pick one of this event's companies, or enter a new one.</div>
                         </div>
                         <div class="form-group">
                             <label for="designation">Designation <span class="optional">(optional)</span></label>
                             <input type="text" name="designation" id="designation" class="form-input" value="<?= htmlspecialchars($_POST['designation'] ?? '') ?>" placeholder="e.g. IT Manager">
                         </div>
                     </div>
-                    <?php if ($companies): ?>
-                    <div class="company-picks" role="group" aria-label="Companies at this event">
-                        <?php foreach ($companies as $c): ?>
-                            <button type="button" class="company-pick" data-company="<?= htmlspecialchars($c) ?>" aria-pressed="<?= ($_POST['company'] ?? '') === $c ? 'true' : 'false' ?>"><?= htmlspecialchars($c) ?></button>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
 
                     <?php if (smsIsConfigured()): ?>
                     <label class="check">
@@ -229,15 +282,5 @@ $page_title = 'Walk-in Registration';
     </main>
 </div>
 
-<script>
-// Company buttons fill the Company box; typing in the box highlights the matching button
-(() => {
-    const input = document.getElementById('company'), picks = document.querySelectorAll('.company-pick');
-    if (!input) return;
-    const sync = () => picks.forEach(b => b.setAttribute('aria-pressed', b.dataset.company.toLowerCase() === input.value.trim().toLowerCase()));
-    picks.forEach(b => b.addEventListener('click', () => { input.value = b.dataset.company; sync(); document.getElementById('designation').focus(); }));
-    input.addEventListener('input', sync);
-})();
-</script>
 </body>
 </html>

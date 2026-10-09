@@ -122,3 +122,16 @@ function overviewEvents() {
     $next = getActiveEvent();
     return $next ? [[$next], 'next'] : [[], ''];
 }
+
+// The design an event's badges print with: the one chosen for the event, else the first favorite design.
+// null = no saved design applies, so the badge page uses its built-in standard badge.
+function badgeTemplateFor($chosen_id) {
+    global $conn;
+    $chosen_id = (int)$chosen_id;
+    $s = $conn->prepare("SELECT id, template_name, layout_json FROM badge_templates
+                         WHERE layout_json IS NOT NULL AND (id = ? OR is_favorite = 1)
+                         ORDER BY id = ? DESC, id LIMIT 1");
+    $s->bind_param("ii", $chosen_id, $chosen_id);
+    $s->execute();
+    return $s->get_result()->fetch_assoc() ?: null;
+}

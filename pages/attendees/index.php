@@ -137,6 +137,7 @@ $page_title = 'Attendees';
     .row-btn-muted { background: #f5f5f5; color: #c4c4c4; cursor: not-allowed; }
     .row-btn-muted:hover { background: #f5f5f5; transform: none; box-shadow: none; }
     button.row-btn { border: none; font: inherit; }
+    .row-form { display: contents; }
     .btn-sms  { background: #0f9d58; color: white; }
     .btn-both { background: linear-gradient(135deg, #7a2f5f, #5c2249); color: white; }
 
@@ -473,6 +474,15 @@ $page_title = 'Attendees';
                                             <?php else: ?>
                                                 <span class="row-btn row-btn-muted" title="No valid mobile number"><?= icon('smartphone', ['class' => 'icon-svg icon-sm']) ?></span>
                                             <?php endif; ?>
+                                        <?php endif; ?>
+                                        <?php if (!$event_locked && $a['status'] === 'checked_in' && in_array(currentRole(), ['admin', 'super_admin'])): ?>
+                                            <form method="POST" action="<?= BASE_URL ?>/api/checkin/undo.php" class="row-form"
+                                                  data-confirm="<?= htmlspecialchars($a['full_name']) ?> goes back to Not yet. Use this when the wrong person was checked in. It is saved in the activity log."
+                                                  data-confirm-title="Undo check-in?" data-confirm-ok="Undo check-in" data-confirm-danger>
+                                                <input type="hidden" name="attendee_id" value="<?= (int)$a['id'] ?>">
+                                                <input type="hidden" name="reason" value="Undone from the attendee list">
+                                                <button type="submit" class="row-btn" title="Undo check-in" aria-label="Undo check-in for <?= htmlspecialchars($a['full_name']) ?>"><?= icon('undo', ['class' => 'icon-svg icon-sm']) ?></button>
+                                            </form>
                                         <?php endif; ?>
                                         <?php if (!$event_locked): ?>
                                             <button type="button" class="row-btn" title="Edit details"
@@ -1100,6 +1110,7 @@ async function saveEditAttendee() {
 
         msg.className = 'edit-msg ok';
         msg.textContent = 'Saved. Refreshing...';
+        appToastNext(data.message, 'success');
         setTimeout(() => location.reload(), 500);
     } catch (e) {
         msg.className = 'edit-msg err';

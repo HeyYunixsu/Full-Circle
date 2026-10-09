@@ -346,6 +346,65 @@ t('S24', 'Dashboard switcher: ?ov=<event> -> bilang ng event na iyon lang; walan
     $live = count(overviewEvents()[0]);
     return $live < 2 || (str_contains($html, 'Registered <em>' . $one . '</em>') && str_contains($html, 'class="ov-switch"'));
 });
+t('S25', 'Create Event na may badge design -> naka-save sa event; badge page bukas sa design na iyon', function () use ($admin) {
+    $tpl = (int)one("SELECT id FROM badge_templates WHERE layout_json IS NOT NULL ORDER BY id DESC LIMIT 1");
+    $form = ['event_name' => 'ZZTEST Badge Pick', 'event_date' => date('Y-m-d', strtotime('+30 days')), 'event_time' => '09:00', 'location' => 'ZZTEST Hall', 'badge_template_id' => $tpl];
+    http('/pages/events/create.php', $form, $admin);
+    $ev = (int)one("SELECT id FROM events WHERE event_name = 'ZZTEST Badge Pick'");
+    $a = addAttendee($ev, 'ZZTEST Badge Person', 'zztest.badge@example.test');
+    $html = http('/pages/checkin/badge.php?attendee_id=' . $a['id'], null, $admin)['body'];
+    return $tpl && (int)one("SELECT badge_template_id FROM events WHERE id = $ev") === $tpl
+        && str_contains($html, 'const START_TPL = ' . $tpl . ';');
+});
+t('S26', 'Badge design ng event: staff bawal magpalit; admin puwede', function () use ($admin, $staff) {
+    $ev = (int)one("SELECT id FROM events WHERE event_name = 'ZZTEST Badge Pick'");
+    $before = (int)one("SELECT badge_template_id FROM events WHERE id = $ev");
+    $other = (int)one("SELECT id FROM badge_templates WHERE layout_json IS NOT NULL AND id <> $before ORDER BY id LIMIT 1");
+    http('/api/events/set_badge.php', ['event_id' => $ev, 'badge_template_id' => $other], $staff);
+    $after_staff = (int)one("SELECT badge_template_id FROM events WHERE id = $ev");
+    http('/api/events/set_badge.php', ['event_id' => $ev, 'badge_template_id' => $other], $admin);
+    return $after_staff === $before && (int)one("SELECT badge_template_id FROM events WHERE id = $ev") === $other;
+});
+t('S27', 'Pag-edit ng pangalan (badge page): staff bawal kung hindi pa ongoing; ongoing -> nase-save', function () use ($eB, $b1, $staff) {
+    global $conn;
+    $post = fn() => json_decode(http('/api/attendees/update.php', ['id' => $b1['id'], 'full_name' => 'ZZTEST Fixed Name'], $staff)['body'], true);
+    $refused = $post();                                                       // eB is upcoming
+    $conn->query("UPDATE events SET status = 'ongoing' WHERE id = $eB");
+    $saved = $post();
+    $conn->query("UPDATE events SET status = 'upcoming' WHERE id = $eB");
+    return $refused['success'] === false && $saved['success'] === true
+        && one("SELECT full_name FROM attendees WHERE id = {$b1['id']}") === 'ZZTEST Fixed Name';
+});
+t('S28', 'Undo check-in: staff puwede sa loob ng 5 min; lampas 5 min admin lang', function () use ($a2, $staff, $admin) {
+    global $conn;
+    $undo = fn($jar) => json_decode(http('/api/checkin/undo.php', ['attendee_id' => $a2['id'], 'reason' => 'ZZTEST', 'ajax' => 1], $jar)['body'], true);
+    $conn->query("UPDATE attendees SET status = 'checked_in', check_in_time = NOW() WHERE id = {$a2['id']}");
+    $fresh = $undo($staff);
+    $conn->query("UPDATE attendees SET status = 'checked_in', check_in_time = NOW() - INTERVAL 10 MINUTE WHERE id = {$a2['id']}");
+    $old_staff = $undo($staff);
+    $old_admin = $undo($admin);
+    $after = one("SELECT status FROM attendees WHERE id = {$a2['id']}");
+    $conn->query("UPDATE attendees SET status = 'checked_in', check_in_time = NOW() WHERE id = {$a2['id']}");
+    return $fresh['success'] && !$old_staff['success'] && $old_admin['success'] && $after === 'not_yet';
+});
+t('S29', 'Walk-in na kapangalan ng nasa listahan -> "Is this the same person?"; "Yes" -> check in, walang bagong record', function () use ($eA, $staff) {
+    $p = addAttendee($eA, 'ZZTEST Ana Lim', 'zztest.ana@example.test');
+    $url = '/pages/checkin/walkin.php?event_id=' . $eA;
+    $form = ['full_name' => 'zztest  ana lim', 'email' => 'zztest.ana2@example.test', 'mobile_number' => '09171234567', 'company' => 'ZZTEST Co'];
+    $warn = http($url, $form, $staff);
+    $yes = http($url, $form + ['use_existing' => $p['id']], $staff);
+    return str_contains($warn['body'], 'Is this the same person?') && $yes['code'] === 302
+        && one("SELECT COUNT(*) FROM attendees WHERE event_id = $eA AND full_name LIKE 'ZZTEST Ana Lim'") == 1
+        && one("SELECT status FROM attendees WHERE id = {$p['id']}") === 'checked_in';
+});
+t('S30', 'Login: 5 maling password -> naka-lock 15 min; tamang password habang naka-lock -> bawal pa rin', function () use ($hash, $pw) {
+    global $conn;
+    $conn->query("INSERT INTO users (first_name, last_name, email, password, role) VALUES ('ZZTEST', 'Lock', 'zztest.lock@example.test', '$hash', 'staff')");
+    for ($i = 0; $i < 5; $i++) $last = http('/pages/auth/login.php', ['email' => 'zztest.lock@example.test', 'password' => 'wrong']);
+    $right = http('/pages/auth/login.php', ['email' => 'zztest.lock@example.test', 'password' => $pw]);
+    return str_contains($last['body'], 'locked for 15 minutes') && $right['code'] === 200 && str_contains($right['body'], 'locked for')
+        && one("SELECT locked_until > NOW() FROM users WHERE email = 'zztest.lock@example.test'") == 1;
+});
 
 foreach ([$staff, $admin] as $jar) @unlink($jar);
 } finally {

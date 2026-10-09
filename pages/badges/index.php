@@ -91,6 +91,7 @@ $page_title = 'Badge Templates';
     </main>
 </div>
 
+<script src="<?= BASE_URL ?>/assets/js/badge-render.js?v=<?= ASSET_VER ?>"></script>
 <script>
 const MINI_DATA = <?= json_encode(array_map(function($t){
     $l = json_decode($t['layout_json'], true);
@@ -99,37 +100,7 @@ const MINI_DATA = <?= json_encode(array_map(function($t){
 
 function renderMini(id, layout) {
     const box = document.getElementById('mini-' + id);
-    if (!box || !layout || !layout.elements) return;
-    const sw = 200 / (layout.size?.w || 360);
-    const sh = 125 / (layout.size?.h || 225);
-    layout.elements.forEach(el => {
-        const d = document.createElement('div');
-        d.style.position = 'absolute';
-        d.style.left = (el.x * sw) + 'px';
-        d.style.top  = (el.y * sh) + 'px';
-        if (el.type === 'text') {
-            d.textContent = el.content || '';
-            d.style.fontSize = ((el.fontSize||14) * sw) + 'px';
-            d.style.fontWeight = el.fontWeight || '400';
-            d.style.color = el.color || '#000';
-            d.style.whiteSpace = 'nowrap';
-        } else if (el.type === 'qr') {
-            d.style.width = (el.size * sw) + 'px';
-            d.style.height = (el.size * sh) + 'px';
-            d.style.background = '#fff';
-            d.style.border = '1px solid #ccc';
-        } else if (el.type === 'rect' || el.type === 'line') {
-            d.style.width = (el.w * sw) + 'px';
-            d.style.height = (el.h * sh) + 'px';
-            d.style.background = el.fill || '#ccc';
-            d.style.opacity = el.opacity ?? 1;
-        } else if (el.type === 'img') {
-            d.style.width = (el.w * sw) + 'px';
-            d.style.height = (el.h * sh) + 'px';
-            if (el.src) { d.style.backgroundImage = `url(${el.src})`; d.style.backgroundSize = 'contain'; d.style.backgroundRepeat = 'no-repeat'; }
-        }
-        box.appendChild(d);
-    });
+    if (box && layout) box.innerHTML = renderBadge(layout, BADGE_SAMPLE, 200 / (layout.size?.w || 360));
 }
 MINI_DATA.forEach(t => renderMini(t.id, t.layout));
 

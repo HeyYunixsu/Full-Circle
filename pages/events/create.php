@@ -19,6 +19,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = sanitize($_POST['description'] ?? '');
     $event_manager = capitalizeWords($_POST['event_manager'] ?? '');
     $max_attendees = (int)($_POST['max_attendees'] ?? 0);
+    // Badge design for this event; an id that is not a saved design is stored as "none" (favorite design is used)
+    $badge_tpl = (int)($_POST['badge_template_id'] ?? 0);
+    $chk = $conn->prepare("SELECT id FROM badge_templates WHERE id = ? AND layout_json IS NOT NULL");
+    $chk->bind_param("i", $badge_tpl);
+    $chk->execute();
+    if (!$chk->get_result()->fetch_row()) $badge_tpl = null;
 
     if (empty($event_name) || empty($event_date) || empty($event_time) || empty($location)) {
         $error = 'Please fill in the event name, date, start time and venue.';
@@ -34,10 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($row = $dup->get_result()->fetch_assoc()) {
             redirect(BASE_URL . '/pages/events/view.php?id=' . $row['id'], 'Event created successfully!');
         }
-        $sql = "INSERT INTO events (event_name, event_date, event_time, location, event_type, description, event_manager, max_attendees, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO events (event_name, event_date, event_time, location, event_type, description, event_manager, max_attendees, badge_template_id, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssssssii", $event_name, $event_date, $event_time, $location, $event_type, $description, $event_manager, $max_attendees, $created_by);
+        $stmt->bind_param("sssssssiii", $event_name, $event_date, $event_time, $location, $event_type, $description, $event_manager, $max_attendees, $badge_tpl, $created_by);
 
         if ($stmt->execute()) {
             $event_id = $conn->insert_id;
@@ -140,6 +146,12 @@ $page_title = 'Create Event';
                             <input type="text" name="companies" id="companies" class="form-input" value="<?= htmlspecialchars($_POST['companies'] ?? '') ?>" placeholder="e.g. SAP, Del Monte, Accenture" aria-describedby="companies-help">
                             <div class="form-help" id="companies-help">Separate with commas. Companies in your attendee list are added automatically, and you can set limits later on the Companies page.</div>
                         </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title">Badge design</div>
+                        <p class="form-help" style="margin: -4px 0 12px;">Every attendee's badge for this event prints with this design. You can change it later on the event page.</p>
+                        <?php $bp_picked = (int)($_POST['badge_template_id'] ?? 0); include __DIR__ . '/../../includes/badge_picker.php'; ?>
                     </div>
 
                     <div class="form-actions">

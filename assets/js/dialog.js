@@ -126,4 +126,43 @@
     window.addEventListener('pageshow', function (e) {   // Back button restores the page as it was: allow sending again
         if (e.persisted) document.querySelectorAll('form[data-sending]').forEach(function (f) { delete f.dataset.sending; });
     });
+
+    // The same pop-up header.php shows after a page action, for actions that finish without loading a page
+    // (saving a badge design, fixing a name on the badge page). appToast('Saved.', 'success'|'error'|'warning'|'info')
+    var TOAST_ICONS = {
+        success: '<circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 9"/>',
+        error:   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+        warning: '<path d="M12 2L1 21h22L12 2z"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+        info:    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+    };
+    function svg(cls, paths) {
+        return '<svg class="' + cls + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+    }
+    window.appToast = function (message, type) {
+        type = TOAST_ICONS[type] ? type : 'success';
+        var stack = document.querySelector('.flash-stack');
+        if (!stack) { stack = document.createElement('div'); stack.className = 'flash-stack'; document.body.appendChild(stack); }
+        var t = document.createElement('div');
+        t.className = 'flash-toast flash-' + type;
+        t.setAttribute('role', type === 'error' || type === 'warning' ? 'alert' : 'status');
+        t.style.setProperty('--ft-life', { success: 5, info: 6, warning: 8, error: 9 }[type] + 's');   // same as header.php
+        t.innerHTML = '<span class="ft-icon">' + svg('icon-svg', TOAST_ICONS[type]) + '</span><div class="ft-body"></div>'
+            + '<button type="button" class="ft-close" aria-label="Dismiss notification">' + svg('icon-svg icon-sm', '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>') + '</button>'
+            + '<span class="ft-timer" aria-hidden="true"></span>';
+        t.querySelector('.ft-body').textContent = message;
+        stack.innerHTML = '';   // one message at a time: the newest replaces the last
+        stack.appendChild(t);
+        var hide = function () { t.classList.add('hide'); setTimeout(function () { t.remove(); }, 250); };
+        t.querySelector('.ft-close').addEventListener('click', hide);
+        t.querySelector('.ft-timer').addEventListener('animationend', hide);
+    };
+    // Show a message on the next page load (for actions that reload the page right after saving)
+    window.appToastNext = function (message, type) {
+        try { sessionStorage.setItem('appToastNext', JSON.stringify({ m: message, t: type })); } catch (e) {}
+    };
+    try {
+        var next = JSON.parse(sessionStorage.getItem('appToastNext') || 'null');
+        sessionStorage.removeItem('appToastNext');
+        if (next) window.appToast(next.m, next.t);
+    } catch (e) {}
 })();

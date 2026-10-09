@@ -57,10 +57,6 @@ $page_title = 'QR Code';
             <div class="qr-code-text"><?= htmlspecialchars($attendee['qr_code']) ?></div>
 
             <div class="qr-actions">
-                <button class="btn btn-secondary" onclick="window.print()" style="flex: 1;">
-                    <?= icon('printer', ['class' => 'icon-svg icon-sm']) ?>
-                    Print
-                </button>
                 <a href="<?= BASE_URL ?>/pages/checkin/badge.php?attendee_id=<?= $attendee['id'] ?>&from=qr" class="btn btn-primary" style="flex: 1;">
                     <?= icon('ticket', ['class' => 'icon-svg icon-sm']) ?>
                     View Badge
