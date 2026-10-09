@@ -95,7 +95,7 @@ $page_title = 'Badge Designer';
 <div class="dashboard-container">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
     <main class="main-content">
-        <?php include __DIR__ . '/../../includes/header.php'; ?>
+        <?php $back_url = BASE_URL . '/pages/badges/index.php'; $back_label = 'Back to badge designs'; include __DIR__ . '/../../includes/header.php'; ?>
 
         <div class="bd-toolbar">
             <input type="text" class="name-input" id="tplName" value="<?= htmlspecialchars($saved_name) ?>" placeholder="Template name">
